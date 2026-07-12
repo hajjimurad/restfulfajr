@@ -14,6 +14,20 @@ your device). The app pulls tonight's prayer times from the
 
 It marks one plan as recommended and gives personalized, sun-aware sleep tips.
 
+## Languages
+
+English and Russian, with a full translation (UI, plan cards, sleep-quality
+verdict, personalized tips, and the "How this works" section). The language
+**auto-detects** from the browser on first visit (Russian if the browser
+language is Russian, else English) and can be switched with the **EN/RU toggle**
+in the header, which is remembered on the device.
+
+All strings live in a single `I18N` dictionary in `index.html`. `sleep.js` stays
+language-neutral — it returns structured data (verdict level, cycle counts,
+minute values) and the UI renders localized text and durations. Adding another
+language is just another entry in `I18N` (calculation-method names are left as
+their institutional English names).
+
 ## Run locally
 
 It's static — open `index.html` in a browser, or serve the folder:
