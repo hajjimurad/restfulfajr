@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Restful Fajr — sleep-aligned prayer times</title>
+<meta name="description" content="Plan your sleep around Maghrib, Isha and Fajr so you wake in your lightest sleep and pray Fajr well-rested.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8C%99%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg1:#e7f6ec; --bg2:#e2f5f0; --bg3:#eef8e9;
+    --ink:#263b31; --ink-soft:#5c7266; --line:#d9ebe0;
+    --card:#ffffff; --accent:#4fae83; --accent-deep:#2f8f63;
+    --sage:#bfe6cf; --mint:#c7efdc; --teal:#b8e6e0; --leaf:#d4edb8; --gold:#f3e2ac;
+    --rec:#5fce97; --rec-ink:#0f4d31; --warn:#b45309;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,"Segoe UI",Inter,system-ui,sans-serif;color:var(--ink);
+    background:linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3));min-height:100vh;padding:26px 16px 60px}
+  .wire{max-width:900px;margin:0 auto}
+  .app-title{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0 0 2px}
+  .app-sub{color:var(--ink-soft);margin:0 0 22px;font-size:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:0 12px 30px -20px rgba(28,80,55,.4)}
+  .step{display:inline-block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--accent-deep);margin-bottom:14px}
+
+  .summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:12px 16px;margin-bottom:18px;box-shadow:0 12px 30px -22px rgba(28,80,55,.4)}
+  .chip{background:#eef8f1;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:13px;font-weight:600;color:var(--accent-deep)}
+  .chip span{color:var(--ink-soft);font-weight:500}
+  .spacer{flex:1}
+  button{font-family:inherit}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:9px 15px;font-size:13px;font-weight:700;cursor:pointer}
+  .btn:hover{background:var(--accent-deep)}
+  .btn.ghost{background:#eef8f1;color:var(--accent-deep);border:1px solid var(--line)}
+
+  .prayer-strip{display:flex;gap:12px;flex-wrap:wrap}
+  .prayer{flex:1 1 90px;text-align:center;border-radius:14px;padding:14px 8px}
+  .prayer:nth-child(1){background:var(--leaf)} .prayer:nth-child(2){background:var(--sage)}
+  .prayer:nth-child(3){background:var(--teal)} .prayer:nth-child(4){background:var(--gold)}
+  .prayer .t{font-size:20px;font-weight:800}
+  .prayer .n{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft);margin-top:2px}
+
+  .plans{display:flex;gap:16px;flex-wrap:wrap}
+  .plan{flex:1 1 300px;background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:18px;position:relative;box-shadow:0 12px 30px -22px rgba(28,80,55,.45)}
+  .plan.rec{border-color:var(--rec);background:linear-gradient(180deg,#f2fcf6,#fff 40%)}
+  .plan.disabled{opacity:.6}
+  .badge{position:absolute;top:-12px;left:16px;background:var(--rec);color:var(--rec-ink);font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
+  .plan h3{margin:2px 0 6px;font-size:17px}
+  .big{font-size:23px;font-weight:800;margin:8px 0 2px;color:var(--accent-deep)}
+  .timeline{height:32px;border-radius:9px;margin:12px 0 4px;background:linear-gradient(90deg,#2f8f63,#5fae83 45%,#a9d0a0 70%,#f3e2ac)}
+  .tl-label{font-size:10px;color:var(--ink-soft);display:flex;justify-content:space-between}
+  .metric{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:13.5px;color:var(--ink-soft)}
+  .metric:last-child{border-bottom:none}
+  .metric b{color:var(--ink);font-weight:700;text-align:right}
+  .metric.warn b{color:var(--warn)}
+  .metric.good b{color:var(--accent-deep)}
+  .tips{margin:0;padding-left:18px}
+  .tips li{margin-bottom:9px;line-height:1.5;font-size:14px}
+  .tips b{color:var(--accent-deep)}
+
+  .row{display:flex;gap:14px;flex-wrap:wrap}
+  .fld{flex:1 1 180px}
+  .fld label{display:block;font-size:12px;font-weight:600;color:var(--ink-soft);margin-bottom:5px}
+  .inp,select{width:100%;background:#f1f9f4;border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:14px;color:var(--ink)}
+  .loc-row{display:flex;gap:8px}
+  .loc-row .inp{flex:1}
+  details{margin-top:14px}
+  summary{cursor:pointer;font-size:13px;color:var(--accent-deep);font-weight:600}
+  .hint{font-size:12px;color:var(--ink-soft);margin-top:5px}
+  .error{background:#fdecec;border:1px solid #f4c7c7;color:#8a2b2b;border-radius:14px;padding:16px 18px;margin-bottom:18px}
+  .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-3px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="wire">
+  <h1 class="app-title">🌙 Restful Fajr</h1>
+  <p class="app-sub">Plan your sleep around Maghrib, Isha &amp; Fajr — wake in your lightest sleep.</p>
+  <div id="view"></div>
+  <p class="app-sub" style="margin-top:26px;font-size:12px;opacity:.8">Prayer times from the AlAdhan API. Settings are saved only on this device. Guidance is general, not medical or religious advice.</p>
+</div>
+
+<script src="sleep.js"></script>
+<script>
+(function () {
+  "use strict";
+  var view = document.getElementById("view");
+  var KEY = "restful-fajr-settings-v1";
+
+  var METHODS = [
+    { id: 3, name: "Muslim World League" },
+    { id: 2, name: "ISNA (North America)" },
+    { id: 5, name: "Egyptian General Authority" },
+    { id: 4, name: "Umm al-Qura (Makkah)" },
+    { id: 1, name: "Univ. of Karachi" },
+    { id: 8, name: "Gulf Region" },
+    { id: 9, name: "Kuwait" },
+    { id: 10, name: "Qatar" },
+    { id: 11, name: "Singapore" },
+    { id: 12, name: "France (UOIF)" },
+    { id: 13, name: "Diyanet (Turkey)" },
+    { id: 7, name: "Tehran" },
+    { id: 14, name: "Russia" }
+  ];
+  var LAT_METHODS = [
+    { id: 3, name: "Angle Based" },
+    { id: 1, name: "Middle of the Night" },
+    { id: 2, name: "One Seventh" }
+  ];
+
+  var DEFAULTS = {
+    locInput: "", locMode: "", lat: null, lng: null, address: "",
+    workWake: "07:00", buffer: 30, method: 3, latMethod: 3,
+    cycle: 90, latency: 15, target: 5, splitBuffer: 30
+  };
+
+  function loadSettings() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (!raw) return null;
+      return Object.assign({}, DEFAULTS, JSON.parse(raw));
+    } catch (e) { return null; }
+  }
+  function saveSettings(s) { localStorage.setItem(KEY, JSON.stringify(s)); }
+
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
+  function methodName(id) { for (var i=0;i<METHODS.length;i++) if (METHODS[i].id==id) return METHODS[i].name; return "MWL"; }
+  function latName(id) { for (var i=0;i<LAT_METHODS.length;i++) if (LAT_METHODS[i].id==id) return LAT_METHODS[i].name; return "Angle Based"; }
+
+  function pad(n){ return (n<10?"0":"")+n; }
+  function ddmmyyyy(d){ return pad(d.getDate())+"-"+pad(d.getMonth()+1)+"-"+d.getFullYear(); }
+
+  // ---- settings view --------------------------------------------------------
+  function renderSettings(firstRun) {
+    var s = loadSettings() || Object.assign({}, DEFAULTS);
+    var methodOpts = METHODS.map(function (m) {
+      return '<option value="'+m.id+'"'+(m.id==s.method?" selected":"")+'>'+esc(m.name)+'</option>'; }).join("");
+    var latOpts = LAT_METHODS.map(function (m) {
+      return '<option value="'+m.id+'"'+(m.id==s.latMethod?" selected":"")+'>'+esc(m.name)+'</option>'; }).join("");
+
+    view.innerHTML =
+      (firstRun ? "" :
+        '<div style="margin-bottom:14px"><button class="btn ghost" id="backBtn">← Back to tonight</button></div>') +
+      '<div class="card">' +
+        '<span class="step">Settings · saved on this device</span>' +
+        '<div class="row">' +
+          '<div class="fld"><label>Location</label>' +
+            '<div class="loc-row">' +
+              '<input class="inp" id="loc" placeholder="City, Country · or lat,long" value="'+esc(s.locInput)+'">' +
+              '<button class="btn" id="geoBtn" type="button">📍</button>' +
+            '</div>' +
+            '<div class="hint" id="locHint">Type “Munich, Germany” or “48.14,11.58”, or tap 📍 to use your location.</div>' +
+          '</div>' +
+          '<div class="fld"><label>Work wake-up</label><input class="inp" id="wake" type="time" value="'+esc(s.workWake)+'"></div>' +
+          '<div class="fld"><label>Family-prep buffer (min)</label><input class="inp" id="buffer" type="number" min="0" max="180" step="5" value="'+esc(s.buffer)+'"></div>' +
+        '</div>' +
+        '<div class="row" style="margin-top:12px">' +
+          '<div class="fld"><label>Calculation method</label><select id="method">'+methodOpts+'</select></div>' +
+          '<div class="fld"><label>High-latitude rule</label><select id="latMethod">'+latOpts+'</select></div>' +
+        '</div>' +
+        '<details><summary>▸ Advanced sleep model</summary>' +
+          '<div class="row" style="margin-top:12px">' +
+            '<div class="fld"><label>Cycle length (min)</label><input class="inp" id="cycle" type="number" min="60" max="120" step="5" value="'+esc(s.cycle)+'"></div>' +
+            '<div class="fld"><label>Fall-asleep latency (min)</label><input class="inp" id="latency" type="number" min="0" max="60" step="5" value="'+esc(s.latency)+'"></div>' +
+            '<div class="fld"><label>Target full cycles</label><input class="inp" id="target" type="number" min="3" max="7" step="1" value="'+esc(s.target)+'"></div>' +
+          '</div>' +
+          '<div class="hint">Split-sleep always keeps at least '+s.splitBuffer+' min before Fajr to pray Isha.</div>' +
+        '</details>' +
+        '<div style="margin-top:16px"><button class="btn" id="saveBtn">Save &amp; see tonight</button></div>' +
+      '</div>';
+
+    document.getElementById("geoBtn").onclick = function () {
+      var hint = document.getElementById("locHint");
+      if (!navigator.geolocation) { hint.textContent = "Geolocation not available — enter a city or lat,long."; return; }
+      hint.textContent = "Locating…";
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        var v = pos.coords.latitude.toFixed(4) + "," + pos.coords.longitude.toFixed(4);
+        document.getElementById("loc").value = v;
+        hint.textContent = "Got your coordinates: " + v;
+      }, function () {
+        hint.textContent = "Couldn’t get location (permission denied?). Enter a city or lat,long instead.";
+      });
+    };
+
+    if (!firstRun) document.getElementById("backBtn").onclick = renderResult;
+
+    document.getElementById("saveBtn").onclick = function () {
+      var locInput = document.getElementById("loc").value.trim();
+      if (!locInput) { document.getElementById("locHint").textContent = "Please enter a location first."; return; }
+      var coord = locInput.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+      var next = {
+        locInput: locInput,
+        locMode: coord ? "coords" : "address",
+        lat: coord ? parseFloat(coord[1]) : null,
+        lng: coord ? parseFloat(coord[2]) : null,
+        address: coord ? "" : locInput,
+        workWake: document.getElementById("wake").value || "07:00",
+        buffer: clampNum("buffer", 30, 0, 180),
+        method: parseInt(document.getElementById("method").value, 10),
+        latMethod: parseInt(document.getElementById("latMethod").value, 10),
+        cycle: clampNum("cycle", 90, 60, 120),
+        latency: clampNum("latency", 15, 0, 60),
+        target: clampNum("target", 5, 3, 7),
+        splitBuffer: 30
+      };
+      saveSettings(next);
+      renderResult();
+    };
+  }
+
+  function clampNum(id, def, lo, hi) {
+    var v = parseInt(document.getElementById(id).value, 10);
+    if (isNaN(v)) v = def;
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  // ---- fetch ----------------------------------------------------------------
+  function endpoint(s, dateStr) {
+    var base = "https://api.aladhan.com/v1/";
+    var common = "method=" + s.method + "&school=0&latitudeAdjustmentMethod=" + s.latMethod;
+    if (s.locMode === "coords") {
+      return base + "timings/" + dateStr + "?latitude=" + s.lat + "&longitude=" + s.lng + "&" + common;
+    }
+    return base + "timingsByAddress/" + dateStr + "?address=" + encodeURIComponent(s.address) + "&" + common;
+  }
+
+  function fetchDay(s, date) {
+    return fetch(endpoint(s, ddmmyyyy(date))).then(function (r) {
+      if (!r.ok) throw new Error("AlAdhan returned HTTP " + r.status);
+      return r.json();
+    }).then(function (j) {
+      if (!j || j.code !== 200 || !j.data || !j.data.timings) throw new Error("Unexpected API response");
+      return j.data;
+    });
+  }
+
+  function fetchTimings(s) {
+    var today = new Date();
+    var tomorrow = new Date(today.getTime() + 86400000);
+    return Promise.all([fetchDay(s, today), fetchDay(s, tomorrow)]).then(function (days) {
+      var d0 = days[0], d1 = days[1];
+      var raw = {
+        maghrib: d0.timings.Maghrib, isha: d0.timings.Isha,
+        fajr: d1.timings.Fajr, sunrise: d1.timings.Sunrise
+      };
+      [raw.maghrib, raw.isha, raw.fajr, raw.sunrise].forEach(function (v) {
+        if (isNaN(Sleep.toMin(v))) throw new Error("Prayer times unavailable for this location/method (persistent twilight?). Try a different high-latitude rule.");
+      });
+      var place = (d0.meta && d0.meta.timezone) ? d0.meta.timezone.split("/").pop().replace(/_/g, " ") : "your location";
+      if (s.locMode === "address") place = s.address;
+      return { raw: raw, place: place, readable: d1.date && d1.date.readable };
+    });
+  }
+
+  // ---- result view ----------------------------------------------------------
+  function renderResult() {
+    var s = loadSettings();
+    if (!s || !s.locInput) { renderSettings(true); return; }
+
+    view.innerHTML =
+      summaryBar(s) +
+      '<div class="card"><span class="spin"></span>Fetching tonight’s prayer times…</div>';
+    wireSummary();
+
+    fetchTimings(s).then(function (data) {
+      var r = Sleep.plan(data.raw, s);
+      view.innerHTML = summaryBar(s) + resultBody(s, data, r);
+      wireSummary();
+    }).catch(function (err) {
+      view.innerHTML = summaryBar(s) +
+        '<div class="error"><b>Couldn’t load prayer times.</b><br>' + esc(err.message) +
+        '<div style="margin-top:12px"><button class="btn" id="retryBtn">Retry</button> ' +
+        '<button class="btn ghost" id="editBtn2">Edit settings</button></div></div>';
+      wireSummary();
+      document.getElementById("retryBtn").onclick = renderResult;
+      document.getElementById("editBtn2").onclick = function () { renderSettings(false); };
+    });
+  }
+
+  function summaryBar(s) {
+    return '<div class="summary">' +
+      '<span class="chip">📍 <span>' + esc(s.locInput) + '</span></span>' +
+      '<span class="chip">⏰ wake <span>' + esc(s.workWake) + '</span></span>' +
+      '<span class="chip">👪 <span>' + esc(s.buffer) + 'm</span></span>' +
+      '<span class="chip">🕌 <span>' + esc(methodName(s.method)) + ' · ' + esc(latName(s.latMethod)) + '</span></span>' +
+      '<span class="spacer"></span>' +
+      '<button class="btn" id="editBtn">⚙︎ Edit settings</button>' +
+      '</div>';
+  }
+  function wireSummary() {
+    var b = document.getElementById("editBtn");
+    if (b) b.onclick = function () { renderSettings(false); };
+  }
+
+  function metric(label, val, cls) {
+    return '<div class="metric ' + (cls || "") + '"><span>' + label + '</span><b>' + val + '</b></div>';
+  }
+
+  function resultBody(s, data, r) {
+    var f = Sleep.fmt, dur = Sleep.dur, t = r.timeline;
+    var a = r.afterIsha, b = r.split;
+    var recA = r.recommended === "afterIsha";
+    var recB = r.recommended === "split";
+
+    var strip =
+      '<div class="card"><span class="step">Tonight — ' + esc(data.place) +
+        (data.readable ? ' · ' + esc(data.readable) : '') + '</span>' +
+      '<div class="prayer-strip">' +
+        prayer(data.raw.maghrib, "Maghrib") + prayer(data.raw.isha, "Isha") +
+        prayer(data.raw.fajr, "Fajr") + prayer(data.raw.sunrise, "Sunrise") +
+      '</div></div>';
+
+    // Plan A card
+    var aCard =
+      '<div class="plan' + (recA ? ' rec' : '') + '">' +
+        (recA ? '<span class="badge">Recommended</span>' : '') +
+        '<h3>😴 Sleep after Isha</h3>' +
+        '<div class="big">' + f(a.bedtime) + ' → ' + f(a.wake) + '</div>' +
+        '<div class="timeline"></div>' +
+        '<div class="tl-label"><span>bed ' + f(a.bedtime) + '</span><span>Fajr wake ' + f(a.wake) + '</span></div>' +
+        metric("Go to sleep", f(a.bedtime)) +
+        metric("Adjusted Fajr wake", f(a.wake)) +
+        metric("Full cycles", a.cycles + " · " + dur(a.mainSleep), a.underTarget ? "warn" : "good") +
+        (a.secondSleep > 0 ? metric("Optional sleep till work", f(a.doneBy) + " → " + f(t.W) + " (" + dur(a.secondSleep) + ")") : "") +
+        metric("Finishes before work?", a.doneBy <= t.W ? "✔ yes" : "✘ tight", a.doneBy <= t.W ? "good" : "warn") +
+      '</div>';
+
+    // Plan B card
+    var bCard;
+    if (!b.viable) {
+      bCard = '<div class="plan disabled"><h3>🌗 Split — sleep after Maghrib</h3>' +
+        '<p style="color:var(--ink-soft);font-size:14px;margin-top:10px">Not practical tonight — Isha (' + f(t.I) +
+        ') is too close to Fajr (' + f(t.F) + ') to fit a sleep cycle with a safe ' + s.splitBuffer + '-min buffer before Fajr.</p></div>';
+    } else {
+      var secondStart = t.F + s.buffer;
+      bCard =
+        '<div class="plan' + (recB ? ' rec' : '') + '">' +
+          (recB ? '<span class="badge">Recommended</span>' : '') +
+          '<h3>🌗 Split — sleep after Maghrib</h3>' +
+          '<div class="big">' + f(b.bedtime) + ' → ' + f(b.wake) + '</div>' +
+          '<div class="timeline"></div>' +
+          '<div class="tl-label"><span>bed ' + f(b.bedtime) + '</span><span>Isha+Fajr window</span></div>' +
+          metric("Go to sleep", f(b.bedtime)) +
+          metric("Wake to pray Isha", f(b.wake)) +
+          metric("Buffer before Fajr", dur(b.buffer) + " ✔ (≥" + s.splitBuffer + "m)", "warn") +
+          metric("Then Fajr at", f(b.fajr), "good") +
+          metric("Full cycles (1st block)", b.cycles + " · " + dur(b.mainSleep), b.cycles < s.target ? "warn" : "good") +
+          (b.secondSleep > 0 ? metric("Optional sleep till work", f(secondStart) + " → " + f(t.W) + " (" + dur(b.secondSleep) + ")") : "") +
+        '</div>';
+    }
+
+    var plans = '<span class="step" style="margin-left:4px">Two plans — pick what fits</span>' +
+      '<div class="plans" style="margin-top:12px">' + aCard + bCard + '</div>';
+
+    var tips = '<div class="card" style="margin-top:20px"><span class="step">Tips for tonight</span>' +
+      '<ul class="tips">' + r.tips.map(function (tp) { return '<li>' + tp + '</li>'; }).join("") + '</ul></div>';
+
+    return strip + plans + tips;
+  }
+
+  function prayer(time, name) {
+    var m = Sleep.toMin(time);
+    return '<div class="prayer"><div class="t">' + (isNaN(m) ? "—" : Sleep.fmt(m)) + '</div><div class="n">' + name + '</div></div>';
+  }
+
+  // ---- boot -----------------------------------------------------------------
+  if (loadSettings()) renderResult(); else renderSettings(true);
+})();
+</script>
+</body>
+</html>

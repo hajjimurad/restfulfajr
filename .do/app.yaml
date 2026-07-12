@@ -1,0 +1,10 @@
+name: restful-fajr
+region: fra
+static_sites:
+  - name: web
+    git:
+      repo_clone_url: https://github.com/hajjimurad/restfulfajr.git
+      branch: main
+    source_dir: /
+    index_document: index.html
+    catchall_document: index.html
