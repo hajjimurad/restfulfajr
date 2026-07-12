@@ -156,40 +156,30 @@
 
   // ---- tips -----------------------------------------------------------------
 
+  /*
+   * Returns structured tip descriptors { code, ...numericParams } — the UI
+   * renders them into localized sentences. Times are minutes on the axis;
+   * durations are minute counts.
+   */
   function buildTips(a, b, rec, t, cfg) {
     var tips = [];
     if (rec === "split") {
-      tips.push(
-        "Isha is late tonight (" + fmt(t.I) + "). Sleeping after Maghrib and waking for Isha + Fajr gives you more rest — the split plan is recommended."
-      );
+      tips.push({ code: "splitRecommended", isha: t.I });
     } else if (a.viable && !a.underTarget) {
-      tips.push(
-        "You can get your full " + cfg.target + " sleep cycles by going to bed after Isha (" + fmt(t.I) + ") — the simple plan works well tonight."
-      );
+      tips.push({ code: "afterIshaFull", target: cfg.target, isha: t.I });
     }
 
     var chosen = rec === "split" ? b : a;
-    if (chosen.underTarget || chosen.cycles < cfg.target) {
-      var deficit = cfg.target - chosen.cycles;
-      if (deficit > 0) {
-        tips.push(
-          "This plan lands " + chosen.cycles + " full cycles (" + dur(chosen.mainSleep) +
-          "). Reaching your " + cfg.target + "-cycle target would need about " +
-          dur(deficit * cfg.cycle) + " more — consider an earlier night or a post-Fajr nap."
-        );
-      }
+    var deficit = cfg.target - chosen.cycles;
+    if ((chosen.underTarget || chosen.cycles < cfg.target) && deficit > 0) {
+      tips.push({ code: "underTarget", cycles: chosen.cycles, mainSleep: chosen.mainSleep, target: cfg.target, deficitMin: deficit * cfg.cycle });
     }
 
     if (rec === "split" && b.viable) {
-      tips.push(
-        "Wake at " + fmt(b.wake) + " to pray Isha; that leaves " + dur(b.buffer) +
-        " before Fajr at " + fmt(t.F) + " — a safe buffer."
-      );
+      tips.push({ code: "splitBuffer", wake: b.wake, buffer: b.buffer, fajr: t.F });
     }
 
-    tips.push(
-      "Sunrise is " + fmt(t.S) + ". Getting daylight soon after Fajr anchors your body clock and makes the next night's sleep easier."
-    );
+    tips.push({ code: "sunrise", sunrise: t.S });
     return tips;
   }
 
@@ -205,28 +195,12 @@
     var mainCycles = planObj.cycles || 0;
     var total = (planObj.mainSleep || 0) + (planObj.secondSleep || 0);
     var need = cfg.target * cfg.cycle;
-    var level, headline, detail;
-
-    var short;
-    if (mainCycles >= cfg.target) {
-      level = "good";
-      headline = "Good rest ahead";
-      short = mainCycles + " full cycles (" + dur(planObj.mainSleep) + ")";
-      detail = mainCycles + " full cycles in one block (" + dur(planObj.mainSleep) + ") — enough for your target.";
-    } else if (total >= need) {
-      level = "ok";
-      headline = "Enough sleep";
-      short = "~" + dur(total) + " total";
-      detail = "About " + dur(total) + " of sleep in total — enough for your target. Your longest single block is " +
-        mainCycles + " cycles (" + dur(planObj.mainSleep) + "); the rest comes from the optional sleep before work.";
-    } else {
-      level = "short";
-      headline = "Short night";
-      short = "~" + dur(total) + " (" + mainCycles + " cycles) — below target";
-      detail = "Only ~" + dur(total) + " (" + mainCycles + " full cycles), below your target of " +
-        cfg.target + " cycles (" + dur(need) + "). Aim for an earlier night if you can.";
-    }
-    return { level: level, headline: headline, short: short, detail: detail, mainCycles: mainCycles, totalSleep: total, need: need };
+    var level;
+    if (mainCycles >= cfg.target) level = "good";
+    else if (total >= need) level = "ok";
+    else level = "short";
+    // Structured only — the UI turns this into localized text.
+    return { level: level, mainCycles: mainCycles, mainSleep: planObj.mainSleep || 0, totalSleep: total, need: need, target: cfg.target };
   }
 
   // ---- top-level ------------------------------------------------------------

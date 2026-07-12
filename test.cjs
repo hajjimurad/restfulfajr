@@ -48,9 +48,10 @@ r = S.plan({ maghrib: "19:00", isha: "20:30", fajr: "04:00", sunrise: "05:30" },
 eq("Cairo verdict level (target met in one block)", r.verdict.level, "good");
 r = S.plan({ maghrib: "21:12", isha: "23:18", fajr: "03:06", sunrise: "05:29" }, settings);
 ok("Munich verdict is ok or short (not good)", r.verdict.level !== "good");
-ok("Munich verdict has headline+detail+short", !!r.verdict.headline && !!r.verdict.detail && !!r.verdict.short);
+ok("Munich verdict has numeric fields", typeof r.verdict.totalSleep === "number" && typeof r.verdict.need === "number" && typeof r.verdict.mainCycles === "number");
 ok("Each plan carries its own verdict", !!r.afterIsha.verdict && !!r.split.verdict);
 ok("Plan verdicts have a level", ["good","ok","short"].indexOf(r.afterIsha.verdict.level) >= 0 && ["good","ok","short"].indexOf(r.split.verdict.level) >= 0);
+ok("Tips are structured objects with codes", Array.isArray(r.tips) && r.tips.every(function (x) { return typeof x === "object" && typeof x.code === "string"; }));
 
 // --- Split hard rule: 30-min buffer before Fajr is always respected ---------
 console.log("\n== Split buffer invariant ==");

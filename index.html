@@ -18,8 +18,12 @@
   body{margin:0;font-family:-apple-system,"Segoe UI",Inter,system-ui,sans-serif;color:var(--ink);
     background:linear-gradient(135deg,var(--bg1),var(--bg2) 55%,var(--bg3));min-height:100vh;padding:26px 16px 60px}
   .wire{max-width:900px;margin:0 auto}
+  .topbar{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
   .app-title{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:0 0 2px}
   .app-sub{color:var(--ink-soft);margin:0 0 22px;font-size:14px}
+  .lang-toggle{flex:none;display:flex;gap:3px;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:3px}
+  .lang-toggle button{background:transparent;border:none;border-radius:999px;padding:5px 11px;font-size:12px;font-weight:800;color:var(--ink-soft);cursor:pointer}
+  .lang-toggle button.active{background:var(--accent);color:#fff}
   .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:18px;box-shadow:0 12px 30px -20px rgba(28,80,55,.4)}
   .step{display:inline-block;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--accent-deep);margin-bottom:14px}
 
@@ -92,10 +96,18 @@
 </head>
 <body>
 <div class="wire">
-  <h1 class="app-title">🌙 Restful Fajr</h1>
-  <p class="app-sub">Plan your sleep around Maghrib, Isha &amp; Fajr — wake in your lightest sleep.</p>
+  <div class="topbar">
+    <div>
+      <h1 class="app-title">🌙 Restful Fajr</h1>
+      <p class="app-sub" id="appSub"></p>
+    </div>
+    <div class="lang-toggle" id="langToggle">
+      <button data-lang="en">EN</button>
+      <button data-lang="ru">RU</button>
+    </div>
+  </div>
   <div id="view"></div>
-  <p class="app-sub" style="margin-top:26px;font-size:12px;opacity:.8">Prayer times from the AlAdhan API. Settings are saved only on this device. Guidance is general, not medical or religious advice.</p>
+  <p class="app-sub" id="appFoot" style="margin-top:26px;font-size:12px;opacity:.8"></p>
 </div>
 
 <script src="sleep.js"></script>
@@ -104,6 +116,171 @@
   "use strict";
   var view = document.getElementById("view");
   var KEY = "restful-fajr-settings-v1";
+  var LANG_KEY = "restful-fajr-lang";
+
+  // ---- i18n -----------------------------------------------------------------
+  var I18N = {
+    en: {
+      sub: "Plan your sleep around Maghrib, Isha & Fajr — wake in your lightest sleep.",
+      foot: "Prayer times from the AlAdhan API. Settings are saved only on this device. Guidance is general, not medical or religious advice.",
+      back: "← Back to tonight",
+      settingsTitle: "Settings · saved on this device",
+      location: "Location",
+      locPlaceholder: "City, Country · or lat,long",
+      locHint: "Type “Munich, Germany” or “48.14,11.58”, or tap 📍 to use your location.",
+      workWake: "Work wake-up",
+      buffer: "Family-prep buffer (min)",
+      method: "Calculation method",
+      latRule: "High-latitude rule",
+      advanced: "▸ Advanced sleep model",
+      cycle: "Cycle length (min)",
+      latency: "Fall-asleep latency (min)",
+      target: "Target full cycles",
+      preSleep: "Post-prayer wind-down (min)",
+      advHint: "Wind-down = time to pray (Isha or Maghrib) and get ready before lying down; it is added on top of the prayer time to get your go-to-sleep time. Split-sleep always keeps at least {n} min before Fajr to pray Isha.",
+      save: "Save & see tonight",
+      geoLocating: "Locating…",
+      geoGot: "Got your coordinates: {v}",
+      geoDenied: "Couldn’t get location (permission denied?). Enter a city or lat,long instead.",
+      geoNA: "Geolocation not available — enter a city or lat,long.",
+      locRequired: "Please enter a location first.",
+      chipWake: "wake",
+      edit: "⚙︎ Edit settings",
+      loading: "Fetching tonight’s prayer times…",
+      errTitle: "Couldn’t load prayer times.",
+      retry: "Retry",
+      editShort: "Edit settings",
+      tonightPrefix: "Tonight — ",
+      twoPlans: "Two plans — pick what fits",
+      tipsTitle: "Tips for tonight",
+      pMaghrib: "Maghrib", pIsha: "Isha", pFajr: "Fajr", pSunrise: "Sunrise",
+      tabIsha: "😴 After Isha", tabMaghrib: "🌗 After Maghrib", recommended: "Recommended",
+      planAh3: "😴 Sleep after Isha",
+      planBh3: "🌗 Split — sleep after Maghrib",
+      mGoSleep: "Go to sleep",
+      mFajrWake: "Adjusted Fajr wake",
+      mFullCycles: "Full cycles",
+      mDoneBy: "Fajr + family prep done by",
+      afterWork: " (after work time!)",
+      mSleepAgain: "Then sleep again until work",
+      mWakeIsha: "Wake to pray Isha",
+      mBufferFajr: "Buffer before Fajr",
+      mBufferVal: "{dur} ✔ (≥{n}m)",
+      mThenFajr: "Then Fajr at",
+      mFirstBlock: "Full cycles (1st block)",
+      splitDisabled: "Not practical tonight — Isha ({isha}) is too close to Fajr ({fajr}) to fit a sleep cycle with a safe {n}-min buffer before Fajr.",
+      tlBed: "bed {x}", tlFajrWake: "Fajr wake {x}", tlWindow: "Isha+Fajr window",
+      vGoodHead: "Good rest ahead", vOkHead: "Enough sleep", vShortHead: "Short night",
+      vGoodShort: "{cycles} cycles ({main})", vOkShort: "~{total} total", vShortShort: "~{total} ({cycles} cycles)",
+      tipSplitRecommended: "Isha is late tonight ({isha}). Sleeping after Maghrib and waking for Isha + Fajr gives you more rest — the split plan is recommended.",
+      tipAfterIshaFull: "You can get your full {target} sleep cycles by going to bed after Isha ({isha}) — the simple plan works well tonight.",
+      tipUnderTarget: "This plan lands {cycles} full cycles ({main}). Reaching your {target}-cycle target would need about {deficit} more — consider an earlier night or a post-Fajr nap.",
+      tipSplitBuffer: "Wake at {wake} to pray Isha; that leaves {buffer} before Fajr at {fajr} — a safe buffer.",
+      tipSunrise: "Sunrise is {sunrise}. Getting daylight soon after Fajr anchors your body clock and makes the next night’s sleep easier.",
+      latAngle: "Angle Based", latMidnight: "Middle of the Night", latSeventh: "One Seventh",
+      theoryTitle: "ℹ️ How this works — the sleep & prayer logic",
+      theoryBody:
+        "<p><b>Sleep runs in ~90-minute cycles.</b> Each cycle moves from light sleep into deep (slow-wave) sleep and then REM. Deep sleep — when the body physically restores itself — is concentrated in the <b>first few cycles</b> of the night. Waking in the middle of deep sleep causes grogginess (sleep inertia); waking at the <b>end of a cycle</b>, in light sleep, feels far easier. This app targets a wake time that lands on a cycle boundary rather than at an arbitrary alarm.</p>" +
+        "<p><b>90 minutes is an average, not a law.</b> Real sleep cycles run roughly <b>70–120 minutes</b>. They differ from person to person (children and older adults tend to be shorter) and even lengthen across a single night — early cycles are shorter and deep-sleep-heavy, later ones longer and REM-heavy. So treat 90 as a sensible starting point, not an exact personal figure.</p>" +
+        "<p><b>Tune it to yourself.</b> If you wake at the suggested time feeling groggy, your personal cycle is probably a bit longer or shorter than the default. Adjust <b>cycle length</b> in the Advanced settings by ±5–10 minutes and try it for a few nights — when wake-ups start feeling easy, you have found your number.</p>" +
+        "<p><b>Why go to bed right after Isha.</b> Because deep sleep is front-loaded, the earlier your night starts, the more restorative sleep you bank before waking for Fajr. We add your prayer + wind-down time and a fall-asleep buffer, then count whole cycles forward to the earliest wake inside the Fajr window that gives you enough rest.</p>" +
+        "<p><b>Why the split plan exists.</b> Isha stays valid all the way until Fajr. When Isha is late (common at high latitudes in summer), staying awake for it wastes prime deep-sleep hours. So the split plan has you pray Maghrib, sleep, then wake <b>at least 30 minutes before Fajr</b> — enough time to pray Isha, then Fajr — before an optional second sleep. You trade one long block for an earlier, longer night.</p>" +
+        "<p><b>Consolidated beats fragmented.</b> One unbroken block of sleep is more restorative than the same hours split up, which is why a single plan that hits your cycle target is preferred over a split when your schedule allows it.</p>" +
+        "<p><b>Morning light matters.</b> Sunrise time is shown so you can get daylight soon after Fajr — bright morning light anchors your circadian rhythm and makes falling asleep the next night easier.</p>" +
+        "<p style=\"opacity:.8\">Prayer times come from the AlAdhan API using your chosen calculation method and high-latitude rule. This is general sleep-hygiene information, not medical or religious advice.</p>"
+    },
+    ru: {
+      sub: "Планируйте сон вокруг Магриба, Иши и Фаджра — просыпайтесь в фазе лёгкого сна.",
+      foot: "Времена молитв — из API AlAdhan. Настройки хранятся только на этом устройстве. Рекомендации носят общий характер и не являются медицинским или религиозным советом.",
+      back: "← Назад к результату",
+      settingsTitle: "Настройки · сохранены на этом устройстве",
+      location: "Местоположение",
+      locPlaceholder: "Город, страна · или широта,долгота",
+      locHint: "Введите «Munich, Germany» или «48.14,11.58», либо нажмите 📍 для автоопределения.",
+      workWake: "Подъём на работу",
+      buffer: "Время на сборы семьи (мин)",
+      method: "Метод расчёта",
+      latRule: "Правило для высоких широт",
+      advanced: "▸ Расширенная модель сна",
+      cycle: "Длина цикла (мин)",
+      latency: "Время засыпания (мин)",
+      target: "Целевое число циклов",
+      preSleep: "Время после молитвы до сна (мин)",
+      advHint: "Время после молитвы = время помолиться (Ишу или Магриб) и подготовиться ко сну; оно прибавляется к времени молитвы, чтобы получить время отхода ко сну. В разделённом плане всегда сохраняется минимум {n} мин до Фаджра для молитвы Иша.",
+      save: "Сохранить и показать",
+      geoLocating: "Определяем…",
+      geoGot: "Координаты получены: {v}",
+      geoDenied: "Не удалось определить местоположение (нет доступа?). Введите город или широту,долготу.",
+      geoNA: "Геолокация недоступна — введите город или широту,долготу.",
+      locRequired: "Сначала укажите местоположение.",
+      chipWake: "подъём",
+      edit: "⚙︎ Настройки",
+      loading: "Загружаем времена молитв…",
+      errTitle: "Не удалось загрузить времена молитв.",
+      retry: "Повторить",
+      editShort: "Настройки",
+      tonightPrefix: "Сегодня — ",
+      twoPlans: "Два плана — выберите подходящий",
+      tipsTitle: "Советы на сегодня",
+      pMaghrib: "Магриб", pIsha: "Иша", pFajr: "Фаджр", pSunrise: "Восход",
+      tabIsha: "😴 После Иши", tabMaghrib: "🌗 После Магриба", recommended: "Рекомендуется",
+      planAh3: "😴 Сон после Иши",
+      planBh3: "🌗 Разделённый — сон после Магриба",
+      mGoSleep: "Лечь спать",
+      mFajrWake: "Подъём на Фаджр",
+      mFullCycles: "Полные циклы",
+      mDoneBy: "Фаджр и сборы завершены к",
+      afterWork: " (позже подъёма!)",
+      mSleepAgain: "Затем снова сон до подъёма",
+      mWakeIsha: "Подъём на Ишу",
+      mBufferFajr: "Запас до Фаджра",
+      mBufferVal: "{dur} ✔ (≥{n} мин)",
+      mThenFajr: "Затем Фаджр в",
+      mFirstBlock: "Полные циклы (1-й блок)",
+      splitDisabled: "Сегодня непрактично — Иша ({isha}) слишком близко к Фаджру ({fajr}), чтобы вместить цикл сна с запасом {n} мин до Фаджра.",
+      tlBed: "сон {x}", tlFajrWake: "подъём {x}", tlWindow: "окно Иша+Фаджр",
+      vGoodHead: "Впереди хороший отдых", vOkHead: "Достаточно сна", vShortHead: "Короткая ночь",
+      vGoodShort: "{cycles} циклов ({main})", vOkShort: "~{total} всего", vShortShort: "~{total} ({cycles} циклов)",
+      tipSplitRecommended: "Иша сегодня поздно ({isha}). Лечь после Магриба и встать на Ишу и Фаджр даст больше отдыха — рекомендуется разделённый план.",
+      tipAfterIshaFull: "Вы можете получить все {target} циклов сна, лёгши после Иши ({isha}) — простой план сегодня подходит.",
+      tipUnderTarget: "Этот план даёт {cycles} полных циклов ({main}). До цели в {target} циклов не хватает около {deficit} — подумайте о более раннем сне или дневном сне после Фаджра.",
+      tipSplitBuffer: "Встаньте в {wake}, чтобы помолиться Ишу; остаётся {buffer} до Фаджра в {fajr} — безопасный запас.",
+      tipSunrise: "Восход в {sunrise}. Дневной свет вскоре после Фаджра настраивает биологические часы и облегчает засыпание следующей ночью.",
+      latAngle: "По углу", latMidnight: "Середина ночи", latSeventh: "Одна седьмая",
+      theoryTitle: "ℹ️ Как это работает — логика сна и молитв",
+      theoryBody:
+        "<p><b>Сон идёт циклами примерно по 90 минут.</b> Каждый цикл проходит от лёгкого сна к глубокому (медленноволновому), затем к быстрому (REM). Глубокий сон — когда тело физически восстанавливается — сосредоточен в <b>первых циклах</b> ночи. Пробуждение посреди глубокого сна вызывает разбитость (инерцию сна); пробуждение в <b>конце цикла</b>, в фазе лёгкого сна, даётся гораздо легче. Приложение подбирает время подъёма на границе цикла, а не по произвольному будильнику.</p>" +
+        "<p><b>90 минут — это среднее, а не закон.</b> Реальные циклы сна длятся примерно <b>70–120 минут</b>. Они различаются у разных людей (у детей и пожилых обычно короче) и даже удлиняются в течение ночи — ранние циклы короче и богаче глубоким сном, поздние длиннее и богаче REM. Считайте 90 разумной отправной точкой, а не точной личной цифрой.</p>" +
+        "<p><b>Настройте под себя.</b> Если вы просыпаетесь в предложенное время разбитым, ваш личный цикл, вероятно, немного длиннее или короче значения по умолчанию. Измените <b>длину цикла</b> в расширенных настройках на ±5–10 минут и попробуйте несколько ночей — когда пробуждения станут лёгкими, вы нашли своё число.</p>" +
+        "<p><b>Почему стоит ложиться сразу после Иши.</b> Поскольку глубокий сон сосредоточен в начале ночи, чем раньше она начинается, тем больше восстановительного сна вы накопите до подъёма на Фаджр. Мы прибавляем время на молитву и сборы плюс время засыпания, затем отсчитываем целые циклы до самого раннего подъёма в окне Фаджра, дающего достаточно отдыха.</p>" +
+        "<p><b>Зачем нужен разделённый план.</b> Иша действительна вплоть до Фаджра. Когда Иша поздно (частая ситуация на высоких широтах летом), бодрствование ради неё тратит лучшие часы глубокого сна. Поэтому в разделённом плане вы молитесь Магриб, спите, затем встаёте <b>минимум за 30 минут до Фаджра</b> — достаточно, чтобы помолиться Ишу, а затем Фаджр — перед необязательным вторым сном. Вы меняете один длинный блок на более раннюю и длинную ночь.</p>" +
+        "<p><b>Непрерывный сон лучше разбитого.</b> Один непрерывный блок сна восстанавливает лучше, чем те же часы по частям, поэтому при возможности одиночный план, достигающий цели по циклам, предпочтительнее разделённого.</p>" +
+        "<p><b>Утренний свет важен.</b> Время восхода показано, чтобы вы могли получить дневной свет вскоре после Фаджра — яркий утренний свет настраивает циркадные ритмы и облегчает засыпание следующей ночью.</p>" +
+        "<p style=\"opacity:.8\">Времена молитв берутся из API AlAdhan по выбранному методу расчёта и правилу для высоких широт. Это общая информация о гигиене сна, а не медицинский или религиозный совет.</p>"
+    }
+  };
+
+  function detectLang() {
+    try { var s = localStorage.getItem(LANG_KEY); if (s === "en" || s === "ru") return s; } catch (e) {}
+    return (navigator.language || "").toLowerCase().indexOf("ru") === 0 ? "ru" : "en";
+  }
+  var LANG = detectLang();
+
+  function tr(key, params) {
+    var s = (I18N[LANG] && I18N[LANG][key]);
+    if (s == null) s = I18N.en[key];
+    if (s == null) return key;
+    if (params) for (var k in params) s = s.split("{" + k + "}").join(params[k]);
+    return s;
+  }
+  function durL(min) {
+    min = Math.max(0, Math.round(min));
+    var h = Math.floor(min / 60), m = min % 60;
+    var H = LANG === "ru" ? "ч" : "h", M = LANG === "ru" ? "м" : "m";
+    if (h && m) return h + H + " " + m + M;
+    if (h) return h + H;
+    return m + M;
+  }
 
   var METHODS = [
     { id: 3, name: "Muslim World League" },
@@ -121,9 +298,9 @@
     { id: 14, name: "Russia" }
   ];
   var LAT_METHODS = [
-    { id: 3, name: "Angle Based" },
-    { id: 1, name: "Middle of the Night" },
-    { id: 2, name: "One Seventh" }
+    { id: 3, key: "latAngle" },
+    { id: 1, key: "latMidnight" },
+    { id: 2, key: "latSeventh" }
   ];
 
   var DEFAULTS = {
@@ -144,63 +321,73 @@
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) {
     return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); }
   function methodName(id) { for (var i=0;i<METHODS.length;i++) if (METHODS[i].id==id) return METHODS[i].name; return "MWL"; }
-  function latName(id) { for (var i=0;i<LAT_METHODS.length;i++) if (LAT_METHODS[i].id==id) return LAT_METHODS[i].name; return "Angle Based"; }
+  function latName(id) { for (var i=0;i<LAT_METHODS.length;i++) if (LAT_METHODS[i].id==id) return tr(LAT_METHODS[i].key); return tr("latAngle"); }
 
   function pad(n){ return (n<10?"0":"")+n; }
   function ddmmyyyy(d){ return pad(d.getDate())+"-"+pad(d.getMonth()+1)+"-"+d.getFullYear(); }
 
+  // ---- view state -----------------------------------------------------------
+  var mode = "result", settingsFirstRun = false, cache = null;
+
+  function rerender() {
+    if (mode === "settings") renderSettings(settingsFirstRun);
+    else if (cache) showResult();
+    else renderResult();
+  }
+
   // ---- settings view --------------------------------------------------------
   function renderSettings(firstRun) {
+    mode = "settings"; settingsFirstRun = firstRun;
     var s = loadSettings() || Object.assign({}, DEFAULTS);
     var methodOpts = METHODS.map(function (m) {
       return '<option value="'+m.id+'"'+(m.id==s.method?" selected":"")+'>'+esc(m.name)+'</option>'; }).join("");
     var latOpts = LAT_METHODS.map(function (m) {
-      return '<option value="'+m.id+'"'+(m.id==s.latMethod?" selected":"")+'>'+esc(m.name)+'</option>'; }).join("");
+      return '<option value="'+m.id+'"'+(m.id==s.latMethod?" selected":"")+'>'+esc(tr(m.key))+'</option>'; }).join("");
 
     view.innerHTML =
       (firstRun ? "" :
-        '<div style="margin-bottom:14px"><button class="btn ghost" id="backBtn">← Back to tonight</button></div>') +
+        '<div style="margin-bottom:14px"><button class="btn ghost" id="backBtn">'+esc(tr("back"))+'</button></div>') +
       '<div class="card">' +
-        '<span class="step">Settings · saved on this device</span>' +
+        '<span class="step">'+esc(tr("settingsTitle"))+'</span>' +
         '<div class="row">' +
-          '<div class="fld"><label>Location</label>' +
+          '<div class="fld"><label>'+esc(tr("location"))+'</label>' +
             '<div class="loc-row">' +
-              '<input class="inp" id="loc" placeholder="City, Country · or lat,long" value="'+esc(s.locInput)+'">' +
+              '<input class="inp" id="loc" placeholder="'+esc(tr("locPlaceholder"))+'" value="'+esc(s.locInput)+'">' +
               '<button class="btn" id="geoBtn" type="button">📍</button>' +
             '</div>' +
-            '<div class="hint" id="locHint">Type “Munich, Germany” or “48.14,11.58”, or tap 📍 to use your location.</div>' +
+            '<div class="hint" id="locHint">'+esc(tr("locHint"))+'</div>' +
           '</div>' +
-          '<div class="fld"><label>Work wake-up</label><input class="inp" id="wake" type="time" value="'+esc(s.workWake)+'"></div>' +
-          '<div class="fld"><label>Family-prep buffer (min)</label><input class="inp" id="buffer" type="number" min="0" max="180" step="5" value="'+esc(s.buffer)+'"></div>' +
+          '<div class="fld"><label>'+esc(tr("workWake"))+'</label><input class="inp" id="wake" type="time" value="'+esc(s.workWake)+'"></div>' +
+          '<div class="fld"><label>'+esc(tr("buffer"))+'</label><input class="inp" id="buffer" type="number" min="0" max="180" step="5" value="'+esc(s.buffer)+'"></div>' +
         '</div>' +
         '<div class="row" style="margin-top:12px">' +
-          '<div class="fld"><label>Calculation method</label><select id="method">'+methodOpts+'</select></div>' +
-          '<div class="fld"><label>High-latitude rule</label><select id="latMethod">'+latOpts+'</select></div>' +
+          '<div class="fld"><label>'+esc(tr("method"))+'</label><select id="method">'+methodOpts+'</select></div>' +
+          '<div class="fld"><label>'+esc(tr("latRule"))+'</label><select id="latMethod">'+latOpts+'</select></div>' +
         '</div>' +
-        '<details><summary>▸ Advanced sleep model</summary>' +
+        '<details><summary>'+esc(tr("advanced"))+'</summary>' +
           '<div class="row" style="margin-top:12px">' +
-            '<div class="fld"><label>Cycle length (min)</label><input class="inp" id="cycle" type="number" min="60" max="120" step="5" value="'+esc(s.cycle)+'"></div>' +
-            '<div class="fld"><label>Fall-asleep latency (min)</label><input class="inp" id="latency" type="number" min="0" max="60" step="5" value="'+esc(s.latency)+'"></div>' +
-            '<div class="fld"><label>Target full cycles</label><input class="inp" id="target" type="number" min="3" max="7" step="1" value="'+esc(s.target)+'"></div>' +
+            '<div class="fld"><label>'+esc(tr("cycle"))+'</label><input class="inp" id="cycle" type="number" min="60" max="120" step="5" value="'+esc(s.cycle)+'"></div>' +
+            '<div class="fld"><label>'+esc(tr("latency"))+'</label><input class="inp" id="latency" type="number" min="0" max="60" step="5" value="'+esc(s.latency)+'"></div>' +
+            '<div class="fld"><label>'+esc(tr("target"))+'</label><input class="inp" id="target" type="number" min="3" max="7" step="1" value="'+esc(s.target)+'"></div>' +
           '</div>' +
           '<div class="row" style="margin-top:12px">' +
-            '<div class="fld"><label>Post-prayer wind-down (min)</label><input class="inp" id="preSleep" type="number" min="0" max="90" step="5" value="'+esc(s.preSleep)+'"></div>' +
+            '<div class="fld"><label>'+esc(tr("preSleep"))+'</label><input class="inp" id="preSleep" type="number" min="0" max="90" step="5" value="'+esc(s.preSleep)+'"></div>' +
           '</div>' +
-          '<div class="hint">Wind-down = time to pray (Isha or Maghrib) and get ready before lying down; it is added on top of the prayer time to get your go-to-sleep time. Split-sleep always keeps at least '+s.splitBuffer+' min before Fajr to pray Isha.</div>' +
+          '<div class="hint">'+esc(tr("advHint", { n: s.splitBuffer }))+'</div>' +
         '</details>' +
-        '<div style="margin-top:16px"><button class="btn" id="saveBtn">Save &amp; see tonight</button></div>' +
+        '<div style="margin-top:16px"><button class="btn" id="saveBtn">'+esc(tr("save"))+'</button></div>' +
       '</div>';
 
     document.getElementById("geoBtn").onclick = function () {
       var hint = document.getElementById("locHint");
-      if (!navigator.geolocation) { hint.textContent = "Geolocation not available — enter a city or lat,long."; return; }
-      hint.textContent = "Locating…";
+      if (!navigator.geolocation) { hint.textContent = tr("geoNA"); return; }
+      hint.textContent = tr("geoLocating");
       navigator.geolocation.getCurrentPosition(function (pos) {
         var v = pos.coords.latitude.toFixed(4) + "," + pos.coords.longitude.toFixed(4);
         document.getElementById("loc").value = v;
-        hint.textContent = "Got your coordinates: " + v;
+        hint.textContent = tr("geoGot", { v: v });
       }, function () {
-        hint.textContent = "Couldn’t get location (permission denied?). Enter a city or lat,long instead.";
+        hint.textContent = tr("geoDenied");
       });
     };
 
@@ -208,7 +395,7 @@
 
     document.getElementById("saveBtn").onclick = function () {
       var locInput = document.getElementById("loc").value.trim();
-      if (!locInput) { document.getElementById("locHint").textContent = "Please enter a location first."; return; }
+      if (!locInput) { document.getElementById("locHint").textContent = tr("locRequired"); return; }
       var coord = locInput.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
       var next = {
         locInput: locInput,
@@ -226,6 +413,7 @@
         preSleep: clampNum("preSleep", 30, 0, 90),
         splitBuffer: 30
       };
+      cache = null;
       saveSettings(next);
       renderResult();
     };
@@ -249,7 +437,7 @@
 
   function fetchDay(s, date) {
     return fetch(endpoint(s, ddmmyyyy(date))).then(function (r) {
-      if (!r.ok) throw new Error("AlAdhan returned HTTP " + r.status);
+      if (!r.ok) throw new Error("AlAdhan HTTP " + r.status);
       return r.json();
     }).then(function (j) {
       if (!j || j.code !== 200 || !j.data || !j.data.timings) throw new Error("Unexpected API response");
@@ -267,9 +455,9 @@
         fajr: d1.timings.Fajr, sunrise: d1.timings.Sunrise
       };
       [raw.maghrib, raw.isha, raw.fajr, raw.sunrise].forEach(function (v) {
-        if (isNaN(Sleep.toMin(v))) throw new Error("Prayer times unavailable for this location/method (persistent twilight?). Try a different high-latitude rule.");
+        if (isNaN(Sleep.toMin(v))) throw new Error("twilight");
       });
-      var place = (d0.meta && d0.meta.timezone) ? d0.meta.timezone.split("/").pop().replace(/_/g, " ") : "your location";
+      var place = (d0.meta && d0.meta.timezone) ? d0.meta.timezone.split("/").pop().replace(/_/g, " ") : "";
       if (s.locMode === "address") place = s.address;
       return { raw: raw, place: place, readable: d1.date && d1.date.readable };
     });
@@ -277,38 +465,46 @@
 
   // ---- result view ----------------------------------------------------------
   function renderResult() {
+    mode = "result";
     var s = loadSettings();
     if (!s || !s.locInput) { renderSettings(true); return; }
 
-    view.innerHTML =
-      summaryBar(s) +
-      '<div class="card"><span class="spin"></span>Fetching tonight’s prayer times…</div>';
+    view.innerHTML = summaryBar(s) + '<div class="card"><span class="spin"></span>' + esc(tr("loading")) + '</div>';
     wireSummary();
 
     fetchTimings(s).then(function (data) {
-      var r = Sleep.plan(data.raw, s);
-      view.innerHTML = summaryBar(s) + resultBody(s, data, r);
-      wireSummary();
-      wireTabs();
+      cache = { s: s, data: data, r: Sleep.plan(data.raw, s) };
+      showResult();
     }).catch(function (err) {
+      cache = null;
+      var msg = err && err.message === "twilight"
+        ? (LANG === "ru" ? "Времена молитв недоступны для этого места/метода (белые ночи?). Попробуйте другое правило для высоких широт."
+                         : "Prayer times unavailable for this location/method (persistent twilight?). Try a different high-latitude rule.")
+        : (LANG === "ru" ? "Проблема с сетью или API. Попробуйте ещё раз." : "Network or API problem. Please try again.");
       view.innerHTML = summaryBar(s) +
-        '<div class="error"><b>Couldn’t load prayer times.</b><br>' + esc(err.message) +
-        '<div style="margin-top:12px"><button class="btn" id="retryBtn">Retry</button> ' +
-        '<button class="btn ghost" id="editBtn2">Edit settings</button></div></div>';
+        '<div class="error"><b>' + esc(tr("errTitle")) + '</b><br>' + esc(msg) +
+        '<div style="margin-top:12px"><button class="btn" id="retryBtn">' + esc(tr("retry")) + '</button> ' +
+        '<button class="btn ghost" id="editBtn2">' + esc(tr("editShort")) + '</button></div></div>';
       wireSummary();
       document.getElementById("retryBtn").onclick = renderResult;
       document.getElementById("editBtn2").onclick = function () { renderSettings(false); };
     });
   }
 
+  function showResult() {
+    view.innerHTML = summaryBar(cache.s) + resultBody(cache.s, cache.data, cache.r);
+    wireSummary();
+    wireTabs();
+  }
+
   function summaryBar(s) {
     return '<div class="summary">' +
       '<span class="chip">📍 <span>' + esc(s.locInput) + '</span></span>' +
-      '<span class="chip">⏰ wake <span>' + esc(s.workWake) + '</span></span>' +
-      '<span class="chip">👪 <span>' + esc(s.buffer) + 'm</span></span>' +
+      '<span class="chip">⏰ ' + esc(tr("chipWake")) + ' <span>' + esc(s.workWake) + '</span></span>' +
+      '<span class="chip">👪 <span>' + esc(s.buffer) + (LANG === "ru" ? " мин" : "m") + '</span></span>' +
       '<span class="chip">🕌 <span>' + esc(methodName(s.method)) + ' · ' + esc(latName(s.latMethod)) + '</span></span>' +
       '<span class="spacer"></span>' +
-      '<button class="btn" id="editBtn">⚙︎ Edit settings</button>' +
+      '<button class="btn" id="editBtn">' + esc(tr("edit")) + '</button>' +
       '</div>';
   }
   function wireSummary() {
@@ -332,104 +528,129 @@
     return '<div class="metric ' + (cls || "") + '"><span>' + label + '</span><b>' + val + '</b></div>';
   }
 
+  function verdictText(vd) {
+    if (vd.level === "good") return { head: tr("vGoodHead"), sub: tr("vGoodShort", { cycles: vd.mainCycles, main: durL(vd.mainSleep) }) };
+    if (vd.level === "ok") return { head: tr("vOkHead"), sub: tr("vOkShort", { total: durL(vd.totalSleep) }) };
+    return { head: tr("vShortHead"), sub: tr("vShortShort", { total: durL(vd.totalSleep), cycles: vd.mainCycles }) };
+  }
+
+  function tipText(tp) {
+    switch (tp.code) {
+      case "splitRecommended": return tr("tipSplitRecommended", { isha: Sleep.fmt(tp.isha) });
+      case "afterIshaFull": return tr("tipAfterIshaFull", { target: tp.target, isha: Sleep.fmt(tp.isha) });
+      case "underTarget": return tr("tipUnderTarget", { cycles: tp.cycles, main: durL(tp.mainSleep), target: tp.target, deficit: durL(tp.deficitMin) });
+      case "splitBuffer": return tr("tipSplitBuffer", { wake: Sleep.fmt(tp.wake), buffer: durL(tp.buffer), fajr: Sleep.fmt(tp.fajr) });
+      case "sunrise": return tr("tipSunrise", { sunrise: Sleep.fmt(tp.sunrise) });
+    }
+    return "";
+  }
+
   function resultBody(s, data, r) {
-    var f = Sleep.fmt, dur = Sleep.dur, t = r.timeline;
+    var f = Sleep.fmt, t = r.timeline;
     var a = r.afterIsha, b = r.split;
     var recA = r.recommended === "afterIsha";
     var recB = r.recommended === "split";
-
     var VICON = { good: "✅", ok: "🌗", short: "⚠️" };
     function pv(vd) {
       if (!vd) return "";
+      var vt = verdictText(vd);
       return '<div class="pverdict ' + vd.level + '">' + (VICON[vd.level] || "🌙") +
-        ' <span>' + vd.headline + ' · ' + vd.short + '</span></div>';
+        ' <span>' + esc(vt.head) + ' · ' + esc(vt.sub) + '</span></div>';
     }
 
     var strip =
-      '<div class="card"><span class="step">Tonight — ' + esc(data.place) +
+      '<div class="card"><span class="step">' + esc(tr("tonightPrefix") + (data.place || "")) +
         (data.readable ? ' · ' + esc(data.readable) : '') + '</span>' +
       '<div class="prayer-strip">' +
-        prayer(data.raw.maghrib, "Maghrib") + prayer(data.raw.isha, "Isha") +
-        prayer(data.raw.fajr, "Fajr") + prayer(data.raw.sunrise, "Sunrise") +
+        prayer(data.raw.maghrib, tr("pMaghrib")) + prayer(data.raw.isha, tr("pIsha")) +
+        prayer(data.raw.fajr, tr("pFajr")) + prayer(data.raw.sunrise, tr("pSunrise")) +
       '</div></div>';
 
     var activeIdx = recB ? 1 : 0;
 
-    // Plan A card
     var aCard =
       '<div class="plan' + (recA ? ' rec' : '') + (activeIdx === 0 ? ' active-tab' : '') + '" data-plan="0">' +
-        (recA ? '<span class="badge">Recommended</span>' : '') +
-        '<h3>😴 Sleep after Isha</h3>' +
+        (recA ? '<span class="badge">' + esc(tr("recommended")) + '</span>' : '') +
+        '<h3>' + esc(tr("planAh3")) + '</h3>' +
         pv(a.verdict) +
         '<div class="big">' + f(a.bedtime) + ' → ' + f(a.wake) + '</div>' +
         '<div class="timeline"></div>' +
-        '<div class="tl-label"><span>bed ' + f(a.bedtime) + '</span><span>Fajr wake ' + f(a.wake) + '</span></div>' +
-        metric("Go to sleep", f(a.bedtime)) +
-        metric("Adjusted Fajr wake", f(a.wake)) +
-        metric("Full cycles", a.cycles + " · " + dur(a.mainSleep), a.underTarget ? "warn" : "good") +
-        metric("Fajr + family prep done by", f(a.doneBy) + (a.doneBy > t.W ? " (after work time!)" : ""), a.doneBy <= t.W ? "good" : "warn") +
-        (a.secondSleep > 0 ? metric("Then sleep again until work", f(a.doneBy) + " → " + f(t.W) + " (" + dur(a.secondSleep) + ")") : "") +
+        '<div class="tl-label"><span>' + esc(tr("tlBed", { x: f(a.bedtime) })) + '</span><span>' + esc(tr("tlFajrWake", { x: f(a.wake) })) + '</span></div>' +
+        metric(esc(tr("mGoSleep")), f(a.bedtime)) +
+        metric(esc(tr("mFajrWake")), f(a.wake)) +
+        metric(esc(tr("mFullCycles")), a.cycles + " · " + durL(a.mainSleep), a.underTarget ? "warn" : "good") +
+        metric(esc(tr("mDoneBy")), f(a.doneBy) + (a.doneBy > t.W ? esc(tr("afterWork")) : ""), a.doneBy <= t.W ? "good" : "warn") +
+        (a.secondSleep > 0 ? metric(esc(tr("mSleepAgain")), f(a.doneBy) + " → " + f(t.W) + " (" + durL(a.secondSleep) + ")") : "") +
       '</div>';
 
-    // Plan B card
     var bCard;
     if (!b.viable) {
-      bCard = '<div class="plan disabled' + (activeIdx === 1 ? ' active-tab' : '') + '" data-plan="1"><h3>🌗 Split — sleep after Maghrib</h3>' +
-        '<p style="color:var(--ink-soft);font-size:14px;margin-top:10px">Not practical tonight — Isha (' + f(t.I) +
-        ') is too close to Fajr (' + f(t.F) + ') to fit a sleep cycle with a safe ' + s.splitBuffer + '-min buffer before Fajr.</p></div>';
+      bCard = '<div class="plan disabled' + (activeIdx === 1 ? ' active-tab' : '') + '" data-plan="1"><h3>' + esc(tr("planBh3")) + '</h3>' +
+        '<p style="color:var(--ink-soft);font-size:14px;margin-top:10px">' +
+        esc(tr("splitDisabled", { isha: f(t.I), fajr: f(t.F), n: s.splitBuffer })) + '</p></div>';
     } else {
       var secondStart = t.F + s.buffer;
       bCard =
         '<div class="plan' + (recB ? ' rec' : '') + (activeIdx === 1 ? ' active-tab' : '') + '" data-plan="1">' +
-          (recB ? '<span class="badge">Recommended</span>' : '') +
-          '<h3>🌗 Split — sleep after Maghrib</h3>' +
+          (recB ? '<span class="badge">' + esc(tr("recommended")) + '</span>' : '') +
+          '<h3>' + esc(tr("planBh3")) + '</h3>' +
           pv(b.verdict) +
           '<div class="big">' + f(b.bedtime) + ' → ' + f(b.wake) + '</div>' +
           '<div class="timeline"></div>' +
-          '<div class="tl-label"><span>bed ' + f(b.bedtime) + '</span><span>Isha+Fajr window</span></div>' +
-          metric("Go to sleep", f(b.bedtime)) +
-          metric("Wake to pray Isha", f(b.wake)) +
-          metric("Buffer before Fajr", dur(b.buffer) + " ✔ (≥" + s.splitBuffer + "m)", "warn") +
-          metric("Then Fajr at", f(b.fajr), "good") +
-          metric("Full cycles (1st block)", b.cycles + " · " + dur(b.mainSleep), b.cycles < s.target ? "warn" : "good") +
-          (b.secondSleep > 0 ? metric("Then sleep again until work", f(secondStart) + " → " + f(t.W) + " (" + dur(b.secondSleep) + ")") : "") +
+          '<div class="tl-label"><span>' + esc(tr("tlBed", { x: f(b.bedtime) })) + '</span><span>' + esc(tr("tlWindow")) + '</span></div>' +
+          metric(esc(tr("mGoSleep")), f(b.bedtime)) +
+          metric(esc(tr("mWakeIsha")), f(b.wake)) +
+          metric(esc(tr("mBufferFajr")), esc(tr("mBufferVal", { dur: durL(b.buffer), n: s.splitBuffer })), "warn") +
+          metric(esc(tr("mThenFajr")), f(b.fajr), "good") +
+          metric(esc(tr("mFirstBlock")), b.cycles + " · " + durL(b.mainSleep), b.cycles < s.target ? "warn" : "good") +
+          (b.secondSleep > 0 ? metric(esc(tr("mSleepAgain")), f(secondStart) + " → " + f(t.W) + " (" + durL(b.secondSleep) + ")") : "") +
         '</div>';
     }
 
-    var recPill = '<span class="tab-rec">Recommended</span>';
+    var recPill = '<span class="tab-rec">' + esc(tr("recommended")) + '</span>';
     var tabs = '<div class="plan-tabs">' +
-      '<button class="ptab' + (activeIdx === 0 ? ' active' : '') + '" data-target="0"><span>😴 After Isha</span>' + (recA ? recPill : '') + '</button>' +
-      '<button class="ptab' + (activeIdx === 1 ? ' active' : '') + '" data-target="1"><span>🌗 After Maghrib</span>' + (recB ? recPill : '') + '</button>' +
+      '<button class="ptab' + (activeIdx === 0 ? ' active' : '') + '" data-target="0"><span>' + esc(tr("tabIsha")) + '</span>' + (recA ? recPill : '') + '</button>' +
+      '<button class="ptab' + (activeIdx === 1 ? ' active' : '') + '" data-target="1"><span>' + esc(tr("tabMaghrib")) + '</span>' + (recB ? recPill : '') + '</button>' +
       '</div>';
-    var plans = '<span class="step" style="margin-left:4px">Two plans — pick what fits</span>' +
+    var plans = '<span class="step" style="margin-left:4px">' + esc(tr("twoPlans")) + '</span>' +
       tabs + '<div class="plans" style="margin-top:12px">' + aCard + bCard + '</div>';
 
-    var tips = '<div class="card" style="margin-top:20px"><span class="step">Tips for tonight</span>' +
-      '<ul class="tips">' + r.tips.map(function (tp) { return '<li>' + tp + '</li>'; }).join("") + '</ul></div>';
+    var tips = '<div class="card" style="margin-top:20px"><span class="step">' + esc(tr("tipsTitle")) + '</span>' +
+      '<ul class="tips">' + r.tips.map(function (tp) { return '<li>' + esc(tipText(tp)) + '</li>'; }).join("") + '</ul></div>';
 
     return strip + plans + tips + theoryCard();
   }
 
   function theoryCard() {
     return '<div class="card theory" style="margin-top:20px"><details>' +
-      '<summary>ℹ️ How this works — the sleep &amp; prayer logic</summary>' +
-      '<p><b>Sleep runs in ~90-minute cycles.</b> Each cycle moves from light sleep into deep (slow-wave) sleep and then REM. Deep sleep — when the body physically restores itself — is concentrated in the <b>first few cycles</b> of the night. Waking in the middle of deep sleep causes grogginess (sleep inertia); waking at the <b>end of a cycle</b>, in light sleep, feels far easier. This app targets a wake time that lands on a cycle boundary rather than at an arbitrary alarm.</p>' +
-      '<p><b>90 minutes is an average, not a law.</b> Real sleep cycles run roughly <b>70–120 minutes</b>. They differ from person to person (children and older adults tend to be shorter) and even lengthen across a single night — early cycles are shorter and deep-sleep-heavy, later ones longer and REM-heavy. So treat 90 as a sensible starting point, not an exact personal figure.</p>' +
-      '<p><b>Tune it to yourself.</b> If you wake at the suggested time feeling groggy, your personal cycle is probably a bit longer or shorter than the default. Adjust <b>cycle length</b> in the Advanced settings by ±5–10 minutes and try it for a few nights — when wake-ups start feeling easy, you have found your number.</p>' +
-      '<p><b>Why go to bed right after Isha.</b> Because deep sleep is front-loaded, the earlier your night starts, the more restorative sleep you bank before waking for Fajr. We add your prayer + wind-down time and a fall-asleep buffer, then count whole cycles forward to the earliest wake inside the Fajr window that gives you enough rest.</p>' +
-      '<p><b>Why the split plan exists.</b> Isha stays valid all the way until Fajr. When Isha is late (common at high latitudes in summer), staying awake for it wastes prime deep-sleep hours. So the split plan has you pray Maghrib, sleep, then wake <b>at least 30 minutes before Fajr</b> — enough time to pray Isha, then Fajr — before an optional second sleep. You trade one long block for an earlier, longer night.</p>' +
-      '<p><b>Consolidated beats fragmented.</b> One unbroken block of sleep is more restorative than the same hours split up, which is why a single plan that hits your cycle target is preferred over a split when your schedule allows it.</p>' +
-      '<p><b>Morning light matters.</b> Sunrise time is shown so you can get daylight soon after Fajr — bright morning light anchors your circadian rhythm and makes falling asleep the next night easier.</p>' +
-      '<p style="opacity:.8">Prayer times come from the AlAdhan API using your chosen calculation method and high-latitude rule. This is general sleep-hygiene information, not medical or religious advice.</p>' +
-      '</details></div>';
+      '<summary>' + esc(tr("theoryTitle")) + '</summary>' + tr("theoryBody") + '</details></div>';
   }
 
   function prayer(time, name) {
     var m = Sleep.toMin(time);
-    return '<div class="prayer"><div class="t">' + (isNaN(m) ? "—" : Sleep.fmt(m)) + '</div><div class="n">' + name + '</div></div>';
+    return '<div class="prayer"><div class="t">' + (isNaN(m) ? "—" : Sleep.fmt(m)) + '</div><div class="n">' + esc(name) + '</div></div>';
   }
 
+  // ---- static text + language toggle ----------------------------------------
+  function applyStaticText() {
+    document.documentElement.lang = LANG;
+    document.getElementById("appSub").textContent = tr("sub");
+    document.getElementById("appFoot").textContent = tr("foot");
+    [].forEach.call(document.querySelectorAll("#langToggle button"), function (btn) {
+      btn.classList.toggle("active", btn.getAttribute("data-lang") === LANG);
+    });
+  }
+  [].forEach.call(document.querySelectorAll("#langToggle button"), function (btn) {
+    btn.onclick = function () {
+      LANG = btn.getAttribute("data-lang");
+      try { localStorage.setItem(LANG_KEY, LANG); } catch (e) {}
+      applyStaticText();
+      rerender();
+    };
+  });
+
   // ---- boot -----------------------------------------------------------------
+  applyStaticText();
   if (loadSettings()) renderResult(); else renderSettings(true);
 })();
 </script>
