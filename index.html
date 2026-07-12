@@ -42,6 +42,15 @@
 
   .plans{display:flex;gap:16px;flex-wrap:wrap}
   .plan{flex:1 1 300px;background:var(--card);border:1.5px solid var(--line);border-radius:18px;padding:18px;position:relative;box-shadow:0 12px 30px -22px rgba(28,80,55,.45)}
+  .plan-tabs{display:none;gap:8px;margin:12px 0}
+  .ptab{flex:1;background:#eef8f1;border:1px solid var(--line);border-radius:11px;padding:11px 10px;font-size:14px;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .ptab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+  @media (max-width:640px){
+    .plan-tabs{display:flex}
+    .plans{display:block}
+    .plan{display:none}
+    .plan.active-tab{display:block}
+  }
   .plan.rec{border-color:var(--rec);background:linear-gradient(180deg,#f2fcf6,#fff 40%)}
   .plan.disabled{opacity:.6}
   .badge{position:absolute;top:-12px;left:16px;background:var(--rec);color:var(--rec-ink);font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;text-transform:uppercase;letter-spacing:.05em}
@@ -278,6 +287,7 @@
       var r = Sleep.plan(data.raw, s);
       view.innerHTML = summaryBar(s) + resultBody(s, data, r);
       wireSummary();
+      wireTabs();
     }).catch(function (err) {
       view.innerHTML = summaryBar(s) +
         '<div class="error"><b>Couldn’t load prayer times.</b><br>' + esc(err.message) +
@@ -302,6 +312,18 @@
   function wireSummary() {
     var b = document.getElementById("editBtn");
     if (b) b.onclick = function () { renderSettings(false); };
+  }
+
+  function wireTabs() {
+    var tabs = [].slice.call(document.querySelectorAll(".ptab"));
+    var plans = [].slice.call(document.querySelectorAll(".plan[data-plan]"));
+    tabs.forEach(function (tb) {
+      tb.onclick = function () {
+        var idx = tb.getAttribute("data-target");
+        tabs.forEach(function (x) { x.classList.toggle("active", x === tb); });
+        plans.forEach(function (p) { p.classList.toggle("active-tab", p.getAttribute("data-plan") === idx); });
+      };
+    });
   }
 
   function metric(label, val, cls) {
@@ -329,9 +351,11 @@
         prayer(data.raw.fajr, "Fajr") + prayer(data.raw.sunrise, "Sunrise") +
       '</div></div>';
 
+    var activeIdx = recB ? 1 : 0;
+
     // Plan A card
     var aCard =
-      '<div class="plan' + (recA ? ' rec' : '') + '">' +
+      '<div class="plan' + (recA ? ' rec' : '') + (activeIdx === 0 ? ' active-tab' : '') + '" data-plan="0">' +
         (recA ? '<span class="badge">Recommended</span>' : '') +
         '<h3>😴 Sleep after Isha</h3>' +
         pv(a.verdict) +
@@ -348,13 +372,13 @@
     // Plan B card
     var bCard;
     if (!b.viable) {
-      bCard = '<div class="plan disabled"><h3>🌗 Split — sleep after Maghrib</h3>' +
+      bCard = '<div class="plan disabled' + (activeIdx === 1 ? ' active-tab' : '') + '" data-plan="1"><h3>🌗 Split — sleep after Maghrib</h3>' +
         '<p style="color:var(--ink-soft);font-size:14px;margin-top:10px">Not practical tonight — Isha (' + f(t.I) +
         ') is too close to Fajr (' + f(t.F) + ') to fit a sleep cycle with a safe ' + s.splitBuffer + '-min buffer before Fajr.</p></div>';
     } else {
       var secondStart = t.F + s.buffer;
       bCard =
-        '<div class="plan' + (recB ? ' rec' : '') + '">' +
+        '<div class="plan' + (recB ? ' rec' : '') + (activeIdx === 1 ? ' active-tab' : '') + '" data-plan="1">' +
           (recB ? '<span class="badge">Recommended</span>' : '') +
           '<h3>🌗 Split — sleep after Maghrib</h3>' +
           pv(b.verdict) +
@@ -370,8 +394,12 @@
         '</div>';
     }
 
+    var tabs = '<div class="plan-tabs">' +
+      '<button class="ptab' + (activeIdx === 0 ? ' active' : '') + '" data-target="0">😴 After Isha</button>' +
+      '<button class="ptab' + (activeIdx === 1 ? ' active' : '') + '" data-target="1">🌗 Split</button>' +
+      '</div>';
     var plans = '<span class="step" style="margin-left:4px">Two plans — pick what fits</span>' +
-      '<div class="plans" style="margin-top:12px">' + aCard + bCard + '</div>';
+      tabs + '<div class="plans" style="margin-top:12px">' + aCard + bCard + '</div>';
 
     var tips = '<div class="card" style="margin-top:20px"><span class="step">Tips for tonight</span>' +
       '<ul class="tips">' + r.tips.map(function (tp) { return '<li>' + tp + '</li>'; }).join("") + '</ul></div>';
