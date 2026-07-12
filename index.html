@@ -86,6 +86,15 @@
   .pverdict.good{background:#eafaf0;border-color:#8fdcb0;color:#12633c}
   .pverdict.ok{background:#eafaf0;border-color:#8fdcb0;color:#12633c}
   .pverdict.short{background:#fdeeea;border-color:#f2bfa8;color:#8a3a1e}
+  .week-strip{display:flex;gap:8px;flex-wrap:wrap}
+  .wk{flex:1 1 90px;min-width:84px;text-align:center;border:1px solid var(--line);border-radius:12px;padding:10px 6px;background:#f7fbf8}
+  .wk.today{outline:2px solid var(--accent);outline-offset:1px}
+  .wk.short{background:#fdeeea}
+  .wk.good,.wk.ok{background:#eefaf2}
+  .wk-day{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft);font-weight:700}
+  .wk-date{font-size:18px;font-weight:800;margin:1px 0 4px}
+  .wk-ic{font-size:15px}
+  .wk-tot{font-size:12px;color:var(--ink-soft);font-weight:600;margin-top:3px}
   .theory summary{font-size:14px;font-weight:700;color:var(--accent-deep)}
   .theory p{font-size:13.5px;line-height:1.6;color:var(--ink-soft);margin:10px 0}
   .theory b{color:var(--ink)}
@@ -153,6 +162,8 @@
       tonightPrefix: "Tonight — ",
       twoPlans: "Two plans — pick what fits",
       tipsTitle: "Tips for tonight",
+      weekAhead: "Week ahead",
+      weekLoading: "Loading the week ahead…",
       pMaghrib: "Maghrib", pIsha: "Isha", pFajr: "Fajr", pSunrise: "Sunrise",
       tabIsha: "😴 After Isha", tabMaghrib: "🌗 After Maghrib", recommended: "Recommended",
       planAh3: "😴 Sleep after Isha",
@@ -222,6 +233,8 @@
       tonightPrefix: "Сегодня — ",
       twoPlans: "Два плана — выберите подходящий",
       tipsTitle: "Советы на сегодня",
+      weekAhead: "Неделя вперёд",
+      weekLoading: "Загружаем неделю…",
       pMaghrib: "Магриб", pIsha: "Иша", pFajr: "Фаджр", pSunrise: "Восход",
       tabIsha: "😴 После Иши", tabMaghrib: "🌗 После Магриба", recommended: "Рекомендуется",
       planAh3: "😴 Сон после Иши",
@@ -492,9 +505,76 @@
   }
 
   function showResult() {
-    view.innerHTML = summaryBar(cache.s) + resultBody(cache.s, cache.data, cache.r);
+    view.innerHTML = summaryBar(cache.s) + resultBody(cache.s, cache.data, cache.r) + '<div id="weekWrap"></div>';
     wireSummary();
     wireTabs();
+    var wrap = document.getElementById("weekWrap");
+    if (cache.week) { wrap.innerHTML = renderWeek(cache.week); return; }
+    wrap.innerHTML = '<div class="card"><span class="spin"></span>' + esc(tr("weekLoading")) + '</div>';
+    fetchWeek(cache.s).then(function (w) {
+      cache.week = w;
+      var wr = document.getElementById("weekWrap");
+      if (wr) wr.innerHTML = renderWeek(w);
+    }).catch(function () {
+      var wr = document.getElementById("weekWrap");
+      if (wr) wr.innerHTML = "";
+    });
+  }
+
+  // ---- week ahead -----------------------------------------------------------
+  function fetchMonth(s, y, m) {
+    var base = "https://api.aladhan.com/v1/";
+    var common = "method=" + s.method + "&school=0&latitudeAdjustmentMethod=" + s.latMethod;
+    var url = s.locMode === "coords"
+      ? base + "calendar/" + y + "/" + m + "?latitude=" + s.lat + "&longitude=" + s.lng + "&" + common
+      : base + "calendarByAddress/" + y + "/" + m + "?address=" + encodeURIComponent(s.address) + "&" + common;
+    return fetch(url).then(function (r) { if (!r.ok) throw new Error("cal HTTP " + r.status); return r.json(); })
+      .then(function (j) { if (!j || j.code !== 200 || !j.data) throw new Error("cal bad"); return j.data; });
+  }
+
+  function fetchWeek(s) {
+    var today = new Date();
+    var days = [];
+    for (var i = 0; i < 8; i++) days.push(new Date(today.getTime() + i * 86400000));
+    var months = {};
+    days.forEach(function (d) { months[d.getFullYear() + "-" + (d.getMonth() + 1)] = d; });
+    var reqs = Object.keys(months).map(function (k) { var d = months[k]; return fetchMonth(s, d.getFullYear(), d.getMonth() + 1); });
+    return Promise.all(reqs).then(function (results) {
+      var map = {};
+      results.forEach(function (arr) { arr.forEach(function (day) { map[day.date.gregorian.date] = day.timings; }); });
+      var nights = [];
+      for (var n = 0; n < 7; n++) {
+        var ev = days[n], mo = days[n + 1];
+        var evT = map[ddmmyyyy(ev)], moT = map[ddmmyyyy(mo)];
+        var base = { y: ev.getFullYear(), m: ev.getMonth() + 1, d: ev.getDate() };
+        if (!evT || !moT) { nights.push(null); continue; }
+        var raw = { maghrib: evT.Maghrib, isha: evT.Isha, fajr: moT.Fajr, sunrise: moT.Sunrise };
+        var valid = [raw.maghrib, raw.isha, raw.fajr, raw.sunrise].every(function (v) { return !isNaN(Sleep.toMin(v)); });
+        if (!valid) { base.level = "na"; base.total = null; nights.push(base); continue; }
+        var r = Sleep.plan(raw, s);
+        var rp = r.recommended === "split" ? r.split : r.afterIsha;
+        base.level = r.verdict.level;
+        base.total = rp.mainSleep + rp.secondSleep;
+        nights.push(base);
+      }
+      return nights;
+    });
+  }
+
+  function renderWeek(nights) {
+    var VICON = { good: "✅", ok: "🌗", short: "⚠️", na: "—" };
+    var cells = nights.map(function (n, i) {
+      if (!n) return "";
+      var wd = new Date(n.y, n.m - 1, n.d).toLocaleDateString(LANG === "ru" ? "ru-RU" : "en-US", { weekday: "short" });
+      var tot = n.total == null ? "—" : durL(n.total);
+      return '<div class="wk ' + n.level + (i === 0 ? " today" : "") + '">' +
+        '<div class="wk-day">' + esc(wd) + '</div>' +
+        '<div class="wk-date">' + n.d + '</div>' +
+        '<div class="wk-ic">' + (VICON[n.level] || "") + '</div>' +
+        '<div class="wk-tot">' + esc(tot) + '</div>' +
+      '</div>';
+    }).join("");
+    return '<div class="card"><span class="step">' + esc(tr("weekAhead")) + '</span><div class="week-strip">' + cells + '</div></div>';
   }
 
   function summaryBar(s) {
