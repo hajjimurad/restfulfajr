@@ -51,6 +51,7 @@
     .plans{display:block}
     .plan{display:none}
     .plan.active-tab{display:block}
+    .plan .badge{display:none}
   }
   .plan.rec{border-color:var(--rec);background:linear-gradient(180deg,#f2fcf6,#fff 40%)}
   .plan.disabled{opacity:.6}
@@ -398,7 +399,7 @@
     var recPill = '<span class="tab-rec">Recommended</span>';
     var tabs = '<div class="plan-tabs">' +
       '<button class="ptab' + (activeIdx === 0 ? ' active' : '') + '" data-target="0"><span>😴 After Isha</span>' + (recA ? recPill : '') + '</button>' +
-      '<button class="ptab' + (activeIdx === 1 ? ' active' : '') + '" data-target="1"><span>🌗 Split</span>' + (recB ? recPill : '') + '</button>' +
+      '<button class="ptab' + (activeIdx === 1 ? ' active' : '') + '" data-target="1"><span>🌗 After Maghrib</span>' + (recB ? recPill : '') + '</button>' +
       '</div>';
     var plans = '<span class="step" style="margin-left:4px">Two plans — pick what fits</span>' +
       tabs + '<div class="plans" style="margin-top:12px">' + aCard + bCard + '</div>';
