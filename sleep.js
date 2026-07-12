@@ -215,10 +215,10 @@
       detail = mainCycles + " full cycles in one block (" + dur(planObj.mainSleep) + ") — enough for your target.";
     } else if (total >= need) {
       level = "ok";
-      headline = "Enough sleep — but in two blocks";
-      short = "~" + dur(total) + " total, split in two";
-      detail = "~" + dur(total) + " total, though your longest single block is " + mainCycles +
-        " cycles (" + dur(planObj.mainSleep) + "). Consolidated sleep is more restorative, so treat the extra block as a real sleep, not a snooze.";
+      headline = "Enough sleep";
+      short = "~" + dur(total) + " total";
+      detail = "About " + dur(total) + " of sleep in total — enough for your target. Your longest single block is " +
+        mainCycles + " cycles (" + dur(planObj.mainSleep) + "); the rest comes from the optional sleep before work.";
     } else {
       level = "short";
       headline = "Short night";
