@@ -16,10 +16,12 @@ const settings = { workWake: "07:00", buffer: 30, cycle: 90, latency: 15, target
 // --- Munich, summer: late Isha, short night -> split should win -------------
 console.log("\n== Munich (late Isha) ==");
 let r = S.plan({ maghrib: "21:12", isha: "23:18", fajr: "03:06", sunrise: "05:29" }, settings);
-eq("Plan A Fajr wake", S.fmt(r.afterIsha.wake), "04:03");
+eq("Plan A go-to-sleep (Isha+30 wind-down)", S.fmt(r.afterIsha.bedtime), "23:48");
+eq("Plan A Fajr wake", S.fmt(r.afterIsha.wake), "04:33");
 eq("Plan A cycles", r.afterIsha.cycles, 3);
 ok("Plan A under target", r.afterIsha.underTarget === true);
-eq("Split wake (pray Isha)", S.fmt(r.split.wake), "01:57");
+eq("Split go-to-sleep (Maghrib+30 wind-down)", S.fmt(r.split.bedtime), "21:42");
+eq("Split wake (pray Isha)", S.fmt(r.split.wake), "02:27");
 eq("Split cycles", r.split.cycles, 3);
 ok("Split buffer >= 30m before Fajr", r.split.buffer >= 30);
 ok("Split viable", r.split.viable === true);
@@ -32,6 +34,13 @@ eq("Plan A cycles", r.afterIsha.cycles, 5);
 ok("Plan A meets target", r.afterIsha.underTarget === false);
 ok("Plan A wake within window", r.afterIsha.wake >= r.timeline.F && r.afterIsha.wake <= r.timeline.S);
 eq("Recommended", r.recommended, "afterIsha");
+
+// --- Pre-sleep wind-down: bedtime = prayer time + wind-down (default 30) ----
+console.log("\n== Pre-sleep wind-down ==");
+r = S.plan({ maghrib: "20:15", isha: "22:47", fajr: "03:30", sunrise: "05:40" }, settings);
+eq("Isha 22:47 -> go to sleep 23:17", S.fmt(r.afterIsha.bedtime), "23:17");
+r = S.plan({ maghrib: "20:15", isha: "22:47", fajr: "03:30", sunrise: "05:40" }, Object.assign({}, settings, { preSleep: 0 }));
+eq("preSleep=0 -> go to sleep at Isha 22:47", S.fmt(r.afterIsha.bedtime), "22:47");
 
 // --- Split hard rule: 30-min buffer before Fajr is always respected ---------
 console.log("\n== Split buffer invariant ==");

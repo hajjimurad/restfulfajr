@@ -111,7 +111,7 @@
   var DEFAULTS = {
     locInput: "", locMode: "", lat: null, lng: null, address: "",
     workWake: "07:00", buffer: 30, method: 3, latMethod: 3,
-    cycle: 90, latency: 15, target: 5, splitBuffer: 30
+    cycle: 90, latency: 15, target: 5, splitBuffer: 30, preSleep: 30
   };
 
   function loadSettings() {
@@ -165,7 +165,10 @@
             '<div class="fld"><label>Fall-asleep latency (min)</label><input class="inp" id="latency" type="number" min="0" max="60" step="5" value="'+esc(s.latency)+'"></div>' +
             '<div class="fld"><label>Target full cycles</label><input class="inp" id="target" type="number" min="3" max="7" step="1" value="'+esc(s.target)+'"></div>' +
           '</div>' +
-          '<div class="hint">Split-sleep always keeps at least '+s.splitBuffer+' min before Fajr to pray Isha.</div>' +
+          '<div class="row" style="margin-top:12px">' +
+            '<div class="fld"><label>Post-prayer wind-down (min)</label><input class="inp" id="preSleep" type="number" min="0" max="90" step="5" value="'+esc(s.preSleep)+'"></div>' +
+          '</div>' +
+          '<div class="hint">Wind-down = time to pray (Isha or Maghrib) and get ready before lying down; it is added on top of the prayer time to get your go-to-sleep time. Split-sleep always keeps at least '+s.splitBuffer+' min before Fajr to pray Isha.</div>' +
         '</details>' +
         '<div style="margin-top:16px"><button class="btn" id="saveBtn">Save &amp; see tonight</button></div>' +
       '</div>';
@@ -202,6 +205,7 @@
         cycle: clampNum("cycle", 90, 60, 120),
         latency: clampNum("latency", 15, 0, 60),
         target: clampNum("target", 5, 3, 7),
+        preSleep: clampNum("preSleep", 30, 0, 90),
         splitBuffer: 30
       };
       saveSettings(next);

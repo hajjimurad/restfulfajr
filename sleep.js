@@ -64,7 +64,8 @@
    * ("earliest full-rest Fajr"). Must finish family-prep + prayer before sunrise.
    */
   function planAfterIsha(t, cfg) {
-    var onset = t.I + cfg.latency;
+    var bedtime = t.I + cfg.preSleep; // pray Isha + wind down before lying down
+    var onset = bedtime + cfg.latency;
     var latest = t.S - cfg.buffer; // last moment we can wake & still finish before sunrise
     var kFajr = Math.max(1, Math.ceil((t.F - onset) / cfg.cycle)); // cycles to reach Fajr
     var k = Math.max(cfg.target, kFajr);
@@ -96,7 +97,7 @@
 
     return {
       type: "afterIsha",
-      bedtime: t.I, onset: onset, wake: wake, fajr: t.F,
+      bedtime: bedtime, onset: onset, wake: wake, fajr: t.F,
       cycles: cycles, mainSleep: mainSleep, secondSleep: secondSleep,
       doneBy: doneBy, underTarget: underTarget, viable: viable
     };
@@ -109,7 +110,8 @@
    * Choose the LARGEST cycle boundary in that window to maximise the first block.
    */
   function planSplit(t, cfg) {
-    var onset = t.M + cfg.latency;
+    var bedtime = t.M + cfg.preSleep; // pray Maghrib + wind down before lying down
+    var onset = bedtime + cfg.latency;
     var latestWake = t.F - cfg.splitBuffer;
     var kHi = Math.floor((latestWake - onset) / cfg.cycle);
     var kLo = Math.max(1, Math.ceil((t.I - onset) / cfg.cycle));
@@ -117,7 +119,7 @@
 
     var res = {
       type: "split",
-      bedtime: t.M, onset: onset, wake: null, isha: t.I, fajr: t.F,
+      bedtime: bedtime, onset: onset, wake: null, isha: t.I, fajr: t.F,
       cycles: 0, mainSleep: 0, buffer: 0, secondSleep: 0, viable: viable
     };
     if (!viable) return res;
@@ -199,7 +201,8 @@
       latency: settings.latency || 15,
       target: settings.target || 5,
       buffer: settings.buffer || 30,
-      splitBuffer: settings.splitBuffer || 30
+      splitBuffer: settings.splitBuffer || 30,
+      preSleep: settings.preSleep != null ? settings.preSleep : 30
     };
     var t = buildTimeline(raw, settings.workWake);
     var a = planAfterIsha(t, cfg);
