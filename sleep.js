@@ -207,22 +207,26 @@
     var need = cfg.target * cfg.cycle;
     var level, headline, detail;
 
+    var short;
     if (mainCycles >= cfg.target) {
       level = "good";
       headline = "Good rest ahead";
+      short = mainCycles + " full cycles (" + dur(planObj.mainSleep) + ")";
       detail = mainCycles + " full cycles in one block (" + dur(planObj.mainSleep) + ") — enough for your target.";
     } else if (total >= need) {
       level = "ok";
       headline = "Enough sleep — but in two blocks";
+      short = "~" + dur(total) + " total, split in two";
       detail = "~" + dur(total) + " total, though your longest single block is " + mainCycles +
         " cycles (" + dur(planObj.mainSleep) + "). Consolidated sleep is more restorative, so treat the extra block as a real sleep, not a snooze.";
     } else {
       level = "short";
       headline = "Short night";
+      short = "~" + dur(total) + " (" + mainCycles + " cycles) — below target";
       detail = "Only ~" + dur(total) + " (" + mainCycles + " full cycles), below your target of " +
         cfg.target + " cycles (" + dur(need) + "). Aim for an earlier night if you can.";
     }
-    return { level: level, headline: headline, detail: detail, mainCycles: mainCycles, totalSleep: total, need: need };
+    return { level: level, headline: headline, short: short, detail: detail, mainCycles: mainCycles, totalSleep: total, need: need };
   }
 
   // ---- top-level ------------------------------------------------------------
@@ -240,8 +244,10 @@
     var a = planAfterIsha(t, cfg);
     var b = planSplit(t, cfg);
     var rec = pickRecommended(a, b);
-    var recPlan = rec === "split" ? b : a;
-    var verdict = buildVerdict(recPlan, cfg);
+    // Verdict per plan — the user may follow either, so both carry their own judgement.
+    a.verdict = buildVerdict(a, cfg);
+    b.verdict = b.viable ? buildVerdict(b, cfg) : null;
+    var verdict = rec === "split" ? b.verdict : a.verdict;
     var tips = buildTips(a, b, rec, t, cfg);
     return { timeline: t, afterIsha: a, split: b, recommended: rec, verdict: verdict, tips: tips, cfg: cfg };
   }

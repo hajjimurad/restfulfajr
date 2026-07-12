@@ -67,14 +67,13 @@
   details{margin-top:14px}
   summary{cursor:pointer;font-size:13px;color:var(--accent-deep);font-weight:600}
   .hint{font-size:12px;color:var(--ink-soft);margin-top:5px}
-  .verdict{display:flex;align-items:center;gap:16px;border-radius:18px;padding:18px 22px;margin-bottom:18px;border:1.5px solid}
-  .verdict .v-icon{font-size:34px;line-height:1}
-  .verdict .v-head{font-size:20px;font-weight:800;letter-spacing:-.01em}
-  .verdict .v-sub{font-size:13.5px;margin-top:3px;line-height:1.45}
-  .verdict.good{background:#eafaf0;border-color:#8fdcb0;color:#12633c}
-  .verdict.ok{background:#fbf6e6;border-color:#ecd79a;color:#7a5b12}
-  .verdict.short{background:#fdeeea;border-color:#f2bfa8;color:#8a3a1e}
-  .verdict .v-sub{color:var(--ink-soft)}
+  .pverdict{display:flex;align-items:center;gap:8px;border-radius:11px;padding:9px 12px;margin:2px 0 12px;font-size:13.5px;font-weight:700;border:1px solid}
+  .pverdict.good{background:#eafaf0;border-color:#8fdcb0;color:#12633c}
+  .pverdict.ok{background:#fbf6e6;border-color:#ecd79a;color:#7a5b12}
+  .pverdict.short{background:#fdeeea;border-color:#f2bfa8;color:#8a3a1e}
+  .theory summary{font-size:14px;font-weight:700;color:var(--accent-deep)}
+  .theory p{font-size:13.5px;line-height:1.6;color:var(--ink-soft);margin:10px 0}
+  .theory b{color:var(--ink)}
   .error{background:#fdecec;border:1px solid #f4c7c7;color:#8a2b2b;border-radius:14px;padding:16px 18px;margin-bottom:18px}
   .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-3px;margin-right:8px}
   @keyframes sp{to{transform:rotate(360deg)}}
@@ -315,15 +314,12 @@
     var recA = r.recommended === "afterIsha";
     var recB = r.recommended === "split";
 
-    var v = r.verdict;
-    var vIcon = { good: "✅", ok: "🌗", short: "⚠️" }[v.level] || "🌙";
-    var recLabel = recB ? "split" : "sleep-after-Isha";
-    var verdict =
-      '<div class="verdict ' + v.level + '">' +
-        '<div class="v-icon">' + vIcon + '</div>' +
-        '<div><div class="v-head">' + v.headline + '</div>' +
-        '<div class="v-sub">If you follow the recommended <b>' + recLabel + '</b> plan: ' + v.detail + '</div></div>' +
-      '</div>';
+    var VICON = { good: "✅", ok: "🌗", short: "⚠️" };
+    function pv(vd) {
+      if (!vd) return "";
+      return '<div class="pverdict ' + vd.level + '">' + (VICON[vd.level] || "🌙") +
+        ' <span>' + vd.headline + ' · ' + vd.short + '</span></div>';
+    }
 
     var strip =
       '<div class="card"><span class="step">Tonight — ' + esc(data.place) +
@@ -338,14 +334,15 @@
       '<div class="plan' + (recA ? ' rec' : '') + '">' +
         (recA ? '<span class="badge">Recommended</span>' : '') +
         '<h3>😴 Sleep after Isha</h3>' +
+        pv(a.verdict) +
         '<div class="big">' + f(a.bedtime) + ' → ' + f(a.wake) + '</div>' +
         '<div class="timeline"></div>' +
         '<div class="tl-label"><span>bed ' + f(a.bedtime) + '</span><span>Fajr wake ' + f(a.wake) + '</span></div>' +
         metric("Go to sleep", f(a.bedtime)) +
         metric("Adjusted Fajr wake", f(a.wake)) +
         metric("Full cycles", a.cycles + " · " + dur(a.mainSleep), a.underTarget ? "warn" : "good") +
-        (a.secondSleep > 0 ? metric("Optional sleep till work", f(a.doneBy) + " → " + f(t.W) + " (" + dur(a.secondSleep) + ")") : "") +
-        metric("Finishes before work?", a.doneBy <= t.W ? "✔ yes" : "✘ tight", a.doneBy <= t.W ? "good" : "warn") +
+        metric("Fajr + family prep done by", f(a.doneBy) + (a.doneBy > t.W ? " (after work time!)" : ""), a.doneBy <= t.W ? "good" : "warn") +
+        (a.secondSleep > 0 ? metric("Then sleep again until work", f(a.doneBy) + " → " + f(t.W) + " (" + dur(a.secondSleep) + ")") : "") +
       '</div>';
 
     // Plan B card
@@ -360,6 +357,7 @@
         '<div class="plan' + (recB ? ' rec' : '') + '">' +
           (recB ? '<span class="badge">Recommended</span>' : '') +
           '<h3>🌗 Split — sleep after Maghrib</h3>' +
+          pv(b.verdict) +
           '<div class="big">' + f(b.bedtime) + ' → ' + f(b.wake) + '</div>' +
           '<div class="timeline"></div>' +
           '<div class="tl-label"><span>bed ' + f(b.bedtime) + '</span><span>Isha+Fajr window</span></div>' +
@@ -368,7 +366,7 @@
           metric("Buffer before Fajr", dur(b.buffer) + " ✔ (≥" + s.splitBuffer + "m)", "warn") +
           metric("Then Fajr at", f(b.fajr), "good") +
           metric("Full cycles (1st block)", b.cycles + " · " + dur(b.mainSleep), b.cycles < s.target ? "warn" : "good") +
-          (b.secondSleep > 0 ? metric("Optional sleep till work", f(secondStart) + " → " + f(t.W) + " (" + dur(b.secondSleep) + ")") : "") +
+          (b.secondSleep > 0 ? metric("Then sleep again until work", f(secondStart) + " → " + f(t.W) + " (" + dur(b.secondSleep) + ")") : "") +
         '</div>';
     }
 
@@ -378,7 +376,19 @@
     var tips = '<div class="card" style="margin-top:20px"><span class="step">Tips for tonight</span>' +
       '<ul class="tips">' + r.tips.map(function (tp) { return '<li>' + tp + '</li>'; }).join("") + '</ul></div>';
 
-    return verdict + strip + plans + tips;
+    return strip + plans + tips + theoryCard();
+  }
+
+  function theoryCard() {
+    return '<div class="card theory" style="margin-top:20px"><details>' +
+      '<summary>ℹ️ How this works — the sleep &amp; prayer logic</summary>' +
+      '<p><b>Sleep runs in ~90-minute cycles.</b> Each cycle moves from light sleep into deep (slow-wave) sleep and then REM. Deep sleep — when the body physically restores itself — is concentrated in the <b>first few cycles</b> of the night. Waking in the middle of deep sleep causes grogginess (sleep inertia); waking at the <b>end of a cycle</b>, in light sleep, feels far easier. This app targets a wake time that lands on a cycle boundary rather than at an arbitrary alarm.</p>' +
+      '<p><b>Why go to bed right after Isha.</b> Because deep sleep is front-loaded, the earlier your night starts, the more restorative sleep you bank before waking for Fajr. We add your prayer + wind-down time and a fall-asleep buffer, then count whole cycles forward to the earliest wake inside the Fajr window that gives you enough rest.</p>' +
+      '<p><b>Why the split plan exists.</b> Isha stays valid all the way until Fajr. When Isha is late (common at high latitudes in summer), staying awake for it wastes prime deep-sleep hours. So the split plan has you pray Maghrib, sleep, then wake <b>at least 30 minutes before Fajr</b> — enough time to pray Isha, then Fajr — before an optional second sleep. You trade one long block for an earlier, longer night.</p>' +
+      '<p><b>Consolidated beats fragmented.</b> One unbroken block of sleep is more restorative than the same hours split up, which is why a single plan that hits your cycle target is preferred over a split when your schedule allows it.</p>' +
+      '<p><b>Morning light matters.</b> Sunrise time is shown so you can get daylight soon after Fajr — bright morning light anchors your circadian rhythm and makes falling asleep the next night easier.</p>' +
+      '<p style="opacity:.8">Prayer times come from the AlAdhan API using your chosen calculation method and high-latitude rule. This is general sleep-hygiene information, not medical or religious advice.</p>' +
+      '</details></div>';
   }
 
   function prayer(time, name) {
