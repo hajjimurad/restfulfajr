@@ -42,6 +42,14 @@ eq("Isha 22:47 -> go to sleep 23:17", S.fmt(r.afterIsha.bedtime), "23:17");
 r = S.plan({ maghrib: "20:15", isha: "22:47", fajr: "03:30", sunrise: "05:40" }, Object.assign({}, settings, { preSleep: 0 }));
 eq("preSleep=0 -> go to sleep at Isha 22:47", S.fmt(r.afterIsha.bedtime), "22:47");
 
+// --- Verdict: prominent "enough or not" for the recommended plan ------------
+console.log("\n== Verdict ==");
+r = S.plan({ maghrib: "19:00", isha: "20:30", fajr: "04:00", sunrise: "05:30" }, settings);
+eq("Cairo verdict level (target met in one block)", r.verdict.level, "good");
+r = S.plan({ maghrib: "21:12", isha: "23:18", fajr: "03:06", sunrise: "05:29" }, settings);
+ok("Munich verdict is ok or short (not good)", r.verdict.level !== "good");
+ok("Munich verdict has headline+detail", !!r.verdict.headline && !!r.verdict.detail);
+
 // --- Split hard rule: 30-min buffer before Fajr is always respected ---------
 console.log("\n== Split buffer invariant ==");
 ok("Munich split buffer >= splitBuffer", true); // covered above

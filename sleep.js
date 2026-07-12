@@ -193,6 +193,38 @@
     return tips;
   }
 
+  // ---- verdict --------------------------------------------------------------
+
+  /*
+   * Overall "will I be rested?" judgement for the recommended plan, if followed.
+   *   good  — the main sleep block alone reaches the target cycles (solid, consolidated rest)
+   *   ok    — main block is short, but main + optional pre-work sleep reaches the target total
+   *   short — even with the optional extra sleep you fall below target
+   */
+  function buildVerdict(planObj, cfg) {
+    var mainCycles = planObj.cycles || 0;
+    var total = (planObj.mainSleep || 0) + (planObj.secondSleep || 0);
+    var need = cfg.target * cfg.cycle;
+    var level, headline, detail;
+
+    if (mainCycles >= cfg.target) {
+      level = "good";
+      headline = "Good rest ahead";
+      detail = mainCycles + " full cycles in one block (" + dur(planObj.mainSleep) + ") — enough for your target.";
+    } else if (total >= need) {
+      level = "ok";
+      headline = "Enough sleep — but in two blocks";
+      detail = "~" + dur(total) + " total, though your longest single block is " + mainCycles +
+        " cycles (" + dur(planObj.mainSleep) + "). Consolidated sleep is more restorative, so treat the extra block as a real sleep, not a snooze.";
+    } else {
+      level = "short";
+      headline = "Short night";
+      detail = "Only ~" + dur(total) + " (" + mainCycles + " full cycles), below your target of " +
+        cfg.target + " cycles (" + dur(need) + "). Aim for an earlier night if you can.";
+    }
+    return { level: level, headline: headline, detail: detail, mainCycles: mainCycles, totalSleep: total, need: need };
+  }
+
   // ---- top-level ------------------------------------------------------------
 
   function plan(raw, settings) {
@@ -208,15 +240,17 @@
     var a = planAfterIsha(t, cfg);
     var b = planSplit(t, cfg);
     var rec = pickRecommended(a, b);
+    var recPlan = rec === "split" ? b : a;
+    var verdict = buildVerdict(recPlan, cfg);
     var tips = buildTips(a, b, rec, t, cfg);
-    return { timeline: t, afterIsha: a, split: b, recommended: rec, tips: tips, cfg: cfg };
+    return { timeline: t, afterIsha: a, split: b, recommended: rec, verdict: verdict, tips: tips, cfg: cfg };
   }
 
   var API = {
     toMin: toMin, fmt: fmt, dur: dur,
     buildTimeline: buildTimeline,
     planAfterIsha: planAfterIsha, planSplit: planSplit,
-    pickRecommended: pickRecommended, buildTips: buildTips, plan: plan
+    pickRecommended: pickRecommended, buildVerdict: buildVerdict, buildTips: buildTips, plan: plan
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = API;

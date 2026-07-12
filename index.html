@@ -67,6 +67,14 @@
   details{margin-top:14px}
   summary{cursor:pointer;font-size:13px;color:var(--accent-deep);font-weight:600}
   .hint{font-size:12px;color:var(--ink-soft);margin-top:5px}
+  .verdict{display:flex;align-items:center;gap:16px;border-radius:18px;padding:18px 22px;margin-bottom:18px;border:1.5px solid}
+  .verdict .v-icon{font-size:34px;line-height:1}
+  .verdict .v-head{font-size:20px;font-weight:800;letter-spacing:-.01em}
+  .verdict .v-sub{font-size:13.5px;margin-top:3px;line-height:1.45}
+  .verdict.good{background:#eafaf0;border-color:#8fdcb0;color:#12633c}
+  .verdict.ok{background:#fbf6e6;border-color:#ecd79a;color:#7a5b12}
+  .verdict.short{background:#fdeeea;border-color:#f2bfa8;color:#8a3a1e}
+  .verdict .v-sub{color:var(--ink-soft)}
   .error{background:#fdecec;border:1px solid #f4c7c7;color:#8a2b2b;border-radius:14px;padding:16px 18px;margin-bottom:18px}
   .spin{display:inline-block;width:16px;height:16px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-3px;margin-right:8px}
   @keyframes sp{to{transform:rotate(360deg)}}
@@ -307,6 +315,16 @@
     var recA = r.recommended === "afterIsha";
     var recB = r.recommended === "split";
 
+    var v = r.verdict;
+    var vIcon = { good: "✅", ok: "🌗", short: "⚠️" }[v.level] || "🌙";
+    var recLabel = recB ? "split" : "sleep-after-Isha";
+    var verdict =
+      '<div class="verdict ' + v.level + '">' +
+        '<div class="v-icon">' + vIcon + '</div>' +
+        '<div><div class="v-head">' + v.headline + '</div>' +
+        '<div class="v-sub">If you follow the recommended <b>' + recLabel + '</b> plan: ' + v.detail + '</div></div>' +
+      '</div>';
+
     var strip =
       '<div class="card"><span class="step">Tonight — ' + esc(data.place) +
         (data.readable ? ' · ' + esc(data.readable) : '') + '</span>' +
@@ -360,7 +378,7 @@
     var tips = '<div class="card" style="margin-top:20px"><span class="step">Tips for tonight</span>' +
       '<ul class="tips">' + r.tips.map(function (tp) { return '<li>' + tp + '</li>'; }).join("") + '</ul></div>';
 
-    return strip + plans + tips;
+    return verdict + strip + plans + tips;
   }
 
   function prayer(time, name) {
